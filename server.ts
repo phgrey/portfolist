@@ -2,6 +2,8 @@ import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { Author, ReferralToken, Team, PortfolioItem, PlatformType } from './src/types';
+import { warmupCacheFromFirestore, queueDocumentWrite, startPeriodicSync } from './src/services/firestoreSync';
+import { mongoDb } from './src/services/mongoFirestore';
 
 const app = express();
 const PORT = 3000;
@@ -416,6 +418,7 @@ app.post('/api/referrals/create', (req, res) => {
   };
 
   db.referralTokens.push(newToken);
+  queueDocumentWrite('referralTokens', newToken.id, newToken);
   res.json({ success: true, token: newToken, inviteUrl: `/join?ref=${newCode}` });
 });
 
@@ -451,6 +454,7 @@ app.post('/api/auth/login', (req, res) => {
 
   // Increment usage count
   refToken.usesCount += 1;
+  queueDocumentWrite('referralTokens', refToken.id, refToken);
 
   // Create new user
   const newAuthor: Author = {
@@ -471,6 +475,7 @@ app.post('/api/auth/login', (req, res) => {
   };
 
   db.authors.push(newAuthor);
+  queueDocumentWrite('authors', newAuthor.id, newAuthor);
 
   res.json({
     status: 'authenticated',
@@ -552,6 +557,7 @@ app.post('/api/teams', (req, res) => {
   };
 
   db.teams.push(newTeam);
+  queueDocumentWrite('teams', newTeam.id, newTeam);
   res.json({ success: true, team: newTeam });
 });
 
@@ -574,6 +580,7 @@ app.post('/api/teams/:slug/join', (req, res) => {
     avatarUrl: author.avatarUrl,
     role: 'member'
   });
+  queueDocumentWrite('teams', team.id, team);
 
   res.json({ success: true, team });
 });
@@ -712,6 +719,7 @@ app.post('/api/portfolio/sync', (req, res) => {
   }
 
   db.portfolioItems.unshift(newItem);
+  queueDocumentWrite('portfolioItems', newItem.id, newItem);
   res.json({ success: true, item: newItem });
 });
 
@@ -873,7 +881,40 @@ app.post('/api/cli/execute', (req, res) => {
   });
 });
 
+// MongoDB API Compatibility Layer Endpoints
+app.post('/api/mongo/:collection/find', async (req, res) => {
+  const { collection } = req.params;
+  const { filter = {}, options = {} } = req.body;
+  const results = await mongoDb.collection(collection).find(filter, options);
+  res.json({ success: true, collection, count: results.length, data: results });
+});
+
+app.post('/api/mongo/:collection/insert', async (req, res) => {
+  const { collection } = req.params;
+  const { document } = req.body;
+  if (!document) return res.status(400).json({ error: 'Document is required' });
+  const result = await mongoDb.collection(collection).insertOne(document);
+  res.json({ success: true, collection, result });
+});
+
+app.post('/api/mongo/:collection/update', async (req, res) => {
+  const { collection } = req.params;
+  const { filter = {}, update = {} } = req.body;
+  const result = await mongoDb.collection(collection).updateOne(filter, update);
+  res.json({ success: true, collection, result });
+});
+
+app.post('/api/mongo/:collection/count', async (req, res) => {
+  const { collection } = req.params;
+  const { filter = {} } = req.body;
+  const count = await mongoDb.collection(collection).countDocuments(filter);
+  res.json({ success: true, collection, count });
+});
+
 async function startServer() {
+  await warmupCacheFromFirestore(db);
+  startPeriodicSync(10000);
+
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },
