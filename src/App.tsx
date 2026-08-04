@@ -9,9 +9,6 @@ import { CliConsole } from './components/CliConsole';
 import { AuthorProfile } from './components/AuthorProfile';
 import { TeamShowcase } from './components/TeamShowcase';
 import { IntegrationsMatrix } from './components/IntegrationsMatrix';
-import { AiTeamCombiner } from './components/AiTeamCombiner';
-import { PromoWhitePage } from './components/PromoWhitePage';
-import { ChromeExtensionApiDoc } from './components/ChromeExtensionApiDoc';
 import { 
   Sparkles, 
   Search, 
@@ -29,8 +26,7 @@ import {
   Github,
   Youtube,
   MessageSquare,
-  Image as ImageIcon,
-  Cpu
+  Image as ImageIcon
 } from 'lucide-react';
 
 export default function App() {
@@ -39,45 +35,8 @@ export default function App() {
   const [portfolioItems, setPortfolioItems] = useState<PortfolioItem[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   
-  const [activeTab, setActiveTab] = useState<'feed' | 'teams' | 'referrals' | 'cli' | 'matrix' | 'author_view' | 'promo' | 'extension_api'>('feed');
+  const [activeTab, setActiveTab] = useState<'feed' | 'teams' | 'referrals' | 'cli' | 'matrix' | 'author_view'>('feed');
   const [selectedAuthorUsername, setSelectedAuthorUsername] = useState<string | null>(null);
-
-  // Theme Management (System default, Light, Dark)
-  const [theme, setTheme] = useState<'system' | 'light' | 'dark'>(() => {
-    return (localStorage.getItem('collective_theme') as 'system' | 'light' | 'dark') || 'system';
-  });
-
-  useEffect(() => {
-    localStorage.setItem('collective_theme', theme);
-    const root = document.documentElement;
-
-    const applyTheme = () => {
-      if (theme === 'dark') {
-        root.classList.add('dark');
-      } else if (theme === 'light') {
-        root.classList.remove('dark');
-      } else {
-        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        if (systemPrefersDark) {
-          root.classList.add('dark');
-        } else {
-          root.classList.remove('dark');
-        }
-      }
-    };
-
-    applyTheme();
-
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleSystemChange = () => {
-      if (theme === 'system') {
-        applyTheme();
-      }
-    };
-
-    mediaQuery.addEventListener('change', handleSystemChange);
-    return () => mediaQuery.removeEventListener('change', handleSystemChange);
-  }, [theme]);
 
   // Filters
   const [platformFilter, setPlatformFilter] = useState<string>('all');
@@ -165,19 +124,8 @@ export default function App() {
 
   const selectedAuthorObj = allAuthors.find(a => a.username === selectedAuthorUsername) || currentUser;
 
-  if (activeTab === 'promo') {
-    return (
-      <PromoWhitePage
-        allAuthors={allAuthors}
-        allTeams={teams}
-        allPortfolioItems={portfolioItems}
-        onBackToApp={() => setActiveTab('feed')}
-      />
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-blue-500 selection:text-white pb-16 transition-colors duration-200">
+    <div className="min-h-screen bg-[#F1F5F9] text-slate-900 font-sans selection:bg-blue-500 selection:text-white pb-16">
       
       {/* Header Bar */}
       <Header
@@ -192,8 +140,6 @@ export default function App() {
         onOpenSignIn={() => setIsSignInOpen(true)}
         activeReferralCode={activeReferralCode}
         onLogout={() => setCurrentUser(null)}
-        theme={theme}
-        setTheme={setTheme}
       />
 
       {/* Main Container */}
@@ -204,37 +150,37 @@ export default function App() {
           <div className="space-y-6 animate-fadeIn">
             
             {/* Top Minimalist Integration Banner */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 sm:p-8 shadow-sm relative overflow-hidden">
+            <div className="bg-white border border-slate-200 rounded-xl p-6 sm:p-8 shadow-sm relative overflow-hidden">
               <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
                 <div className="max-w-3xl space-y-2">
-                  <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 text-[11px] font-mono font-semibold">
-                    <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                  <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded bg-blue-50 border border-blue-200 text-blue-700 text-[11px] font-mono font-semibold">
+                    <Sparkles className="w-3.5 h-3.5 text-blue-600" />
                     <span>REFERRAL-GATED COLLECTIVE SYSTEM</span>
                   </div>
 
-                  <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
                     Unified Portfolio & Integration Hub
                   </h1>
 
-                  <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+                  <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
                     Ingesting Gemini Notebooks (.ipynb), Google Docs, GitHub Repos, YouTube Guides, Reddit Threads, Flickr Sets, and Web3 Wallet Proofs into a multi-tenant collective showcase.
                   </p>
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-3 shrink-0">
-                  <div className="p-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg text-center font-mono">
-                    <div className="text-xl font-bold text-slate-800 dark:text-slate-100">{portfolioItems.length}</div>
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-center font-mono">
+                    <div className="text-xl font-bold text-slate-800">{portfolioItems.length}</div>
                     <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Synced Items</div>
                   </div>
-                  <div className="p-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg text-center font-mono">
-                    <div className="text-xl font-bold text-blue-600 dark:text-blue-400">{allAuthors.length}</div>
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-center font-mono">
+                    <div className="text-xl font-bold text-blue-600">{allAuthors.length}</div>
                     <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Active Authors</div>
                   </div>
                 </div>
               </div>
 
               {/* Search & Filter Bar */}
-              <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4 flex-wrap">
+              <div className="mt-6 pt-6 border-t border-slate-200 flex items-center justify-between gap-4 flex-wrap">
                 
                 {/* Search Input */}
                 <div className="relative flex-1 min-w-[240px]">
@@ -244,7 +190,7 @@ export default function App() {
                     placeholder="Search repos, notebook titles, or tags (#Gemini, #Python)..."
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 text-xs focus:outline-none focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 transition-all font-sans"
+                    className="w-full pl-9 pr-4 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 placeholder-slate-400 text-xs focus:outline-none focus:border-blue-500 focus:bg-white transition-all font-sans"
                   />
                 </div>
 
@@ -265,8 +211,8 @@ export default function App() {
                       onClick={() => setPlatformFilter(p.id)}
                       className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all cursor-pointer ${
                         platformFilter === p.id
-                          ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 border-slate-900 dark:border-slate-100 shadow-sm font-semibold'
-                          : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/60'
+                          ? 'bg-slate-900 text-white border-slate-900 shadow-sm font-semibold'
+                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                       }`}
                     >
                       {p.label}
@@ -279,13 +225,13 @@ export default function App() {
 
             {/* Portfolio Grid */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between text-xs font-mono text-slate-500 dark:text-slate-400">
-                <span className="uppercase text-[10px] font-bold tracking-widest text-slate-400 dark:text-slate-500">
+              <div className="flex items-center justify-between text-xs font-mono text-slate-500">
+                <span className="uppercase text-[10px] font-bold tracking-widest text-slate-400">
                   COLLECTIVE FEED ({filteredItems.length} ITEMS)
                 </span>
                 <button
                   onClick={fetchData}
-                  className="flex items-center gap-1 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                  className="flex items-center gap-1 text-slate-600 hover:text-blue-600 transition-colors cursor-pointer"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
                   <span>Force Sync All</span>
@@ -293,7 +239,7 @@ export default function App() {
               </div>
 
               {filteredItems.length === 0 ? (
-                <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-500 text-xs shadow-sm">
+                <div className="p-12 text-center bg-white rounded-xl border border-slate-200 text-slate-500 text-xs shadow-sm">
                   No portfolio items matched your filter criteria. Try clearing search keywords.
                 </div>
               ) : (
@@ -314,27 +260,17 @@ export default function App() {
           </div>
         )}
 
-        {/* VIEW 2: Teams Showcase & AI Team Combiner */}
+        {/* VIEW 2: Teams Showcase */}
         {activeTab === 'teams' && (
-          <div className="space-y-8 animate-fadeIn">
-            {/* AI Team Synthesizer Engine */}
-            <AiTeamCombiner
-              allAuthors={allAuthors}
-              currentUser={currentUser}
-              onRefreshTeams={fetchData}
-            />
-
-            {/* Existing Teams Roster & Portfolio Showcase */}
-            <TeamShowcase
-              teams={teams}
-              portfolioItems={portfolioItems}
-              currentUser={currentUser}
-              onRefreshTeams={fetchData}
-              onOpenNotebook={item => setSelectedNotebook(item)}
-              onOpenGDoc={item => setSelectedGDoc(item)}
-              onOpenAuthor={handleOpenAuthorProfile}
-            />
-          </div>
+          <TeamShowcase
+            teams={teams}
+            portfolioItems={portfolioItems}
+            currentUser={currentUser}
+            onRefreshTeams={fetchData}
+            onOpenNotebook={item => setSelectedNotebook(item)}
+            onOpenGDoc={item => setSelectedGDoc(item)}
+            onOpenAuthor={handleOpenAuthorProfile}
+          />
         )}
 
         {/* VIEW 3: Invite Network & Referrals */}
@@ -382,16 +318,6 @@ export default function App() {
                 })
               }).then(() => fetchData());
             }}
-          />
-        )}
-
-        {/* VIEW 6: Chrome Extension REST API Hub */}
-        {activeTab === 'extension_api' && (
-          <ChromeExtensionApiDoc
-            currentUser={currentUser}
-            allAuthors={allAuthors}
-            allTeams={teams}
-            onRefreshData={fetchData}
           />
         )}
 

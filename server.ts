@@ -1,7 +1,6 @@
 import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
-import { GoogleGenAI } from '@google/genai';
 import { Author, ReferralToken, Team, PortfolioItem, PlatformType } from './src/types';
 
 const app = express();
@@ -163,7 +162,6 @@ Merging luxury visual design systems with Web3 cryptographic verification and Fl
       description: 'Interactive Jupyter Notebook benchmarking Gemini 2.5 Flash multimodal embeddings and agentic tool-use routines.',
       url: 'https://colab.research.google.com/drive/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms',
       isFeatured: true,
-      isAuthorOwner: true,
       syncedAt: '2026-08-01T10:00:00Z',
       tags: ['Gemini AI', 'Notebook', 'Python', 'Embeddings', 'Agentic'],
       contentPayload: {
@@ -238,7 +236,6 @@ Merging luxury visual design systems with Web3 cryptographic verification and Fl
       description: 'Autonomous agentic workflow engine built with Node.js, Express, and Google GenAI SDK for structured multi-step tasks.',
       url: 'https://github.com/alexchen-ai/gemini-agentic-workflow',
       isFeatured: true,
-      isAuthorOwner: true,
       syncedAt: '2026-08-02T11:20:00Z',
       tags: ['GitHub', 'TypeScript', 'Express', 'Gemini API', 'Open Source'],
       contentPayload: {
@@ -260,7 +257,6 @@ Merging luxury visual design systems with Web3 cryptographic verification and Fl
       description: 'Google Drive Document outlining the zero-trust referral check, OAuth token refresh lifecycle, and CLI ingestion matrix.',
       url: 'https://docs.google.com/document/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit',
       isFeatured: false,
-      isAuthorOwner: true,
       syncedAt: '2026-08-03T08:15:00Z',
       tags: ['Google Docs', 'Architecture', 'System Design', 'Security'],
       contentPayload: {
@@ -289,7 +285,6 @@ This document defines the zero-trust referral architecture for the Collective Po
       description: 'Comprehensive video breakdown of structuring Gemini API integrations in full-stack Node.js server architectures.',
       url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
       isFeatured: true,
-      isAuthorOwner: true,
       syncedAt: '2026-07-28T16:00:00Z',
       tags: ['YouTube', 'Video Guide', 'Gemini 2.5', 'Tutorial'],
       contentPayload: {
@@ -330,7 +325,6 @@ This document defines the zero-trust referral architecture for the Collective Po
       description: 'Cryptographic proof of authorship verified on Base Mainnet via SIWE / MetaMask wallet signature.',
       url: 'https://basescan.org/token/0x71C7656EC7ab88b098defB751B7401B5f6d8976F',
       isFeatured: true,
-      isAuthorOwner: true,
       syncedAt: '2026-08-01T09:10:00Z',
       tags: ['MetaMask', 'Web3', 'ERC-721', 'Base Chain', 'Proof of Work'],
       contentPayload: {
@@ -351,7 +345,6 @@ This document defines the zero-trust referral architecture for the Collective Po
       description: 'Curated Flickr Photo Album featuring high-resolution UI component state breakdowns and layout grids.',
       url: 'https://flickr.com/photos/marcorossi_photos/sets/7215772026',
       isFeatured: true,
-      isAuthorOwner: true,
       syncedAt: '2026-08-02T15:40:00Z',
       tags: ['Flickr', 'Design Tokens', 'Photography', 'UI UX'],
       contentPayload: {
@@ -877,347 +870,6 @@ app.post('/api/cli/execute', (req, res) => {
 
   return res.json({
     output: `\x1b[33mCommand executed:\x1b[0m ${command}\n\x1b[90mRun "portfolio-cli help" for usage syntax.\x1b[0m`
-  });
-});
-
-// AI Team Combiner Endpoint
-app.post('/api/ai/combine-team', async (req, res) => {
-  const { mode = 'project', projectRequirements = '', selectedAuthorUsernames } = req.body;
-
-  let authorsToAnalyze = db.authors;
-  if (selectedAuthorUsernames && Array.isArray(selectedAuthorUsernames) && selectedAuthorUsernames.length > 0) {
-    authorsToAnalyze = db.authors.filter(a => selectedAuthorUsernames.includes(a.username));
-  }
-
-  const authorsSummary = authorsToAnalyze.map(a => {
-    const items = db.portfolioItems.filter(i => i.authorUsername === a.username);
-    return {
-      username: a.username,
-      displayName: a.displayName,
-      role: a.role,
-      bio: a.bioMarkdown,
-      integrations: a.integrations.map(i => i.provider),
-      portfolioTitles: items.map(i => i.title),
-      portfolioTags: Array.from(new Set(items.flatMap(i => i.tags)))
-    };
-  });
-
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (apiKey) {
-    try {
-      const ai = new GoogleGenAI({ apiKey });
-      const prompt = `
-You are an expert AI CTO and Squad Synthesizer. Analyze the following author talent profiles and their portfolio assets:
-${JSON.stringify(authorsSummary, null, 2)}
-
-Goal: Synthesize an optimal multi-author team for mode = "${mode}".
-${mode === 'project' ? `Target Project Brief / Requirement: "${projectRequirements || 'Build an end-to-end multi-platform developer ecosystem with Gemini AI, Web3 verification, and design system.'}"` : 'Target Goal: Establish a high-throughput, permanent cross-functional guild roster.'}
-
-Return ONLY a JSON object (no markdown fence, no markdown ticks, just raw JSON) matching this exact structure:
-{
-  "mode": "${mode}",
-  "teamName": "Creative name for the squad",
-  "synergyScore": 96,
-  "rationale": "Detailed rationale in markdown explaining why this team configuration was selected.",
-  "roles": [
-    {
-      "authorUsername": "username",
-      "displayName": "displayName",
-      "recommendedRole": "Specific role title",
-      "contributionSummary": "Exact deliverables they oversee",
-      "keySkills": ["skill1", "skill2"]
-    }
-  ],
-  "suggestedMilestones": ["Milestone 1", "Milestone 2", "Milestone 3"]
-}
-`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt
-      });
-
-      const text = response.text || '';
-      const cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
-      const parsed = JSON.parse(cleaned);
-
-      parsed.roles = parsed.roles.map((r: any) => {
-        const aut = db.authors.find(a => a.username === r.authorUsername);
-        return {
-          ...r,
-          avatarUrl: aut?.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'
-        };
-      });
-
-      return res.json(parsed);
-    } catch (err) {
-      console.warn('Gemini API call or JSON parse failed, returning fallback AI team:', err);
-    }
-  }
-
-  // Fallback Rule-Based AI Team Synthesizer
-  const teamName = mode === 'project' 
-    ? (projectRequirements ? `Squad: ${projectRequirements.substring(0, 28)}...` : 'AI & Full-Stack Project Squad')
-    : 'Omni-Channel Collective Guild';
-
-  const roles = authorsToAnalyze.map(a => {
-    let roleTitle = a.role;
-    let contrib = 'Core system architecture and integration maintenance.';
-    if (a.username === 'alex_chen') {
-      roleTitle = mode === 'project' ? 'Lead AI Agent Architect & Python Engineer' : 'Guild AI Systems Lead';
-      contrib = 'Engineers Gemini 2.5 Flash SDK pipelines, notebook parsing, and CLI sync handlers.';
-    } else if (a.username === 'sarah_dev') {
-      roleTitle = mode === 'project' ? 'Web3 Identity & Express Infrastructure Lead' : 'Guild Protocol & Full-Stack Architect';
-      contrib = 'Manages referral token verification, SIWE signatures, and high-throughput server routes.';
-    } else if (a.username === 'marco_design') {
-      roleTitle = mode === 'project' ? 'Principal UI/UX & Design Systems Lead' : 'Guild Design & Media Curator';
-      contrib = 'Architects layout tokens, micro-interactions, and Flickr asset pipeline set showcases.';
-    }
-
-    return {
-      authorUsername: a.username,
-      displayName: a.displayName,
-      avatarUrl: a.avatarUrl,
-      recommendedRole: roleTitle,
-      contributionSummary: contrib,
-      keySkills: a.role.split(' ').concat(['TypeScript', 'Integrations'])
-    };
-  });
-
-  res.json({
-    mode,
-    teamName,
-    synergyScore: mode === 'project' ? 98 : 95,
-    rationale: `### AI Team Synthesis Analysis
-- **Complementary Skill Coverage**: The squad unites AI Agent Engineering (@alex_chen), Web3 & Server Architecture (@sarah_dev), and Precision UI/UX Design (@marco_design).
-- **Verified Asset Ownership**: Each author brings verified source feeds (GitHub repos, Gemini Notebooks, Base Mainnet tokens, Flickr sets).
-- **Execution Velocity**: High compatibility score (${mode === 'project' ? '98%' : '95%'}) across referral-gated communication and CLI automation.`,
-    roles,
-    suggestedMilestones: [
-      'Sprint 1: Schema synchronization & CLI endpoint binding',
-      'Sprint 2: Gemini notebook parsing & multi-modal embedding benchmarks',
-      'Sprint 3: Cross-platform referral verification & team guild deployment'
-    ]
-  });
-});
-
-// ==========================================
-// CHROME EXTENSION REST API ENDPOINTS
-// ==========================================
-
-// 1. Get Extension Status & Author Config
-app.get('/api/extension/status', (req, res) => {
-  const authorUsername = (req.headers['x-author-username'] as string) || (req.query.authorUsername as string) || 'alex_chen';
-  const author = db.authors.find(a => a.username === authorUsername);
-
-  if (!author) {
-    return res.status(404).json({ success: false, error: `Author @${authorUsername} not found.` });
-  }
-
-  const authorItems = db.portfolioItems.filter(i => i.authorUsername === author.username);
-  const userTeams = db.teams.filter(t => t.members.some(m => m.username === author.username));
-
-  res.json({
-    success: true,
-    extensionVersion: '1.4.0',
-    authenticatedAuthor: {
-      id: author.id,
-      username: author.username,
-      displayName: author.displayName,
-      role: author.role,
-      avatarUrl: author.avatarUrl,
-      integrationsCount: author.integrations.length,
-      portfolioItemsCount: authorItems.length
-    },
-    managedTeams: userTeams.map(t => ({
-      id: t.id,
-      name: t.name,
-      slug: t.slug,
-      isOwner: t.members.some(m => m.username === author.username && m.role === 'owner')
-    })),
-    apiEndpoints: {
-      publishPortfolio: 'POST /api/extension/portfolio',
-      editProfile: 'PUT /api/extension/profile',
-      editTeam: 'PUT /api/extension/team',
-      docs: 'GET /api/extension/docs'
-    }
-  });
-});
-
-// 2. Publish/Clip New Portfolio Item from Chrome Extension
-app.post('/api/extension/portfolio', (req, res) => {
-  const authorUsername = (req.headers['x-author-username'] as string) || req.body.authorUsername || 'alex_chen';
-  const author = db.authors.find(a => a.username === authorUsername);
-
-  if (!author) {
-    return res.status(401).json({ success: false, error: 'Unauthorized: Invalid author username' });
-  }
-
-  const { title, description, url, sourcePlatform = 'custom', tags = [], isFeatured = false, contentPayload = {} } = req.body;
-
-  if (!title || !url) {
-    return res.status(400).json({ success: false, error: 'Missing required fields: "title" and "url" are required.' });
-  }
-
-  const newItem: PortfolioItem = {
-    id: `ext_${Date.now()}`,
-    authorId: author.id,
-    authorUsername: author.username,
-    authorDisplayName: author.displayName,
-    authorAvatar: author.avatarUrl,
-    sourcePlatform: sourcePlatform as PlatformType,
-    externalId: `chrome_ext_${Date.now()}`,
-    title,
-    description: description || 'Clipped directly via Chrome Extension Browser Capture.',
-    url,
-    isFeatured: Boolean(isFeatured),
-    syncedAt: new Date().toISOString(),
-    tags: Array.isArray(tags) && tags.length > 0 ? tags : ['ChromeExtension', 'WebCapture'],
-    contentPayload: contentPayload || { capturedVia: 'Chrome Extension v1.4' }
-  };
-
-  db.portfolioItems.unshift(newItem);
-
-  res.status(201).json({
-    success: true,
-    message: 'Portfolio item successfully captured and published into author feed.',
-    item: newItem
-  });
-});
-
-// 3. Edit Own Author Profile from Chrome Extension
-app.put('/api/extension/profile', (req, res) => {
-  const authorUsername = (req.headers['x-author-username'] as string) || req.body.authorUsername || 'alex_chen';
-  const authorIndex = db.authors.findIndex(a => a.username === authorUsername);
-
-  if (authorIndex === -1) {
-    return res.status(404).json({ success: false, error: `Author @${authorUsername} not found.` });
-  }
-
-  const { displayName, role, bioMarkdown, avatarUrl, contactMethods } = req.body;
-
-  const currentAuthor = db.authors[authorIndex];
-
-  db.authors[authorIndex] = {
-    ...currentAuthor,
-    displayName: displayName !== undefined ? displayName : currentAuthor.displayName,
-    role: role !== undefined ? role : currentAuthor.role,
-    bioMarkdown: bioMarkdown !== undefined ? bioMarkdown : currentAuthor.bioMarkdown,
-    avatarUrl: avatarUrl !== undefined ? avatarUrl : currentAuthor.avatarUrl,
-    contactMethods: Array.isArray(contactMethods) ? contactMethods : currentAuthor.contactMethods
-  };
-
-  // Update author avatar/name across all portfolio items
-  db.portfolioItems.forEach(item => {
-    if (item.authorUsername === authorUsername) {
-      if (displayName) item.authorDisplayName = displayName;
-      if (avatarUrl) item.authorAvatar = avatarUrl;
-    }
-  });
-
-  res.json({
-    success: true,
-    message: 'Author profile updated successfully via Chrome Extension REST API.',
-    author: db.authors[authorIndex]
-  });
-});
-
-// 4. Edit/Update Team Page Details from Chrome Extension
-app.put('/api/extension/team', (req, res) => {
-  const authorUsername = (req.headers['x-author-username'] as string) || req.body.authorUsername || 'alex_chen';
-  const { teamSlug, teamId, name, descriptionMarkdown, avatarUrl } = req.body;
-
-  const teamIndex = db.teams.findIndex(t => t.slug === teamSlug || t.id === teamId);
-
-  if (teamIndex === -1) {
-    return res.status(404).json({ success: false, error: 'Team not found for given slug/id.' });
-  }
-
-  const targetTeam = db.teams[teamIndex];
-
-  // Verify membership or ownership
-  const member = targetTeam.members.find(m => m.username === authorUsername);
-  if (!member) {
-    return res.status(403).json({ success: false, error: `Author @${authorUsername} is not a member of team ${targetTeam.name}.` });
-  }
-
-  db.teams[teamIndex] = {
-    ...targetTeam,
-    name: name !== undefined ? name : targetTeam.name,
-    descriptionMarkdown: descriptionMarkdown !== undefined ? descriptionMarkdown : targetTeam.descriptionMarkdown,
-    avatarUrl: avatarUrl !== undefined ? avatarUrl : targetTeam.avatarUrl
-  };
-
-  res.json({
-    success: true,
-    message: `Team page details updated for "${db.teams[teamIndex].name}" via Chrome Extension.`,
-    team: db.teams[teamIndex]
-  });
-});
-
-// 5. Chrome Extension OpenAPI / Endpoint Spec
-app.get('/api/extension/docs', (req, res) => {
-  res.json({
-    openapi: '3.0.0',
-    info: {
-      title: 'Author Chrome Extension REST API',
-      version: '1.4.0',
-      description: 'REST API endpoints enabling author browser extensions to send web captures to portfolio feeds, update author bio/profile, and edit team pages. Note: No separate authentication endpoint exists; authentication relies on the author being logged in on the web site.'
-    },
-    baseUrl: '/api/extension',
-    authentication: {
-      type: 'Site Session Authentication',
-      requiresSeparateAuthEndpoint: false,
-      note: 'There is no separate login endpoint. The author must be logged in on our site. Requests inherit or present the logged-in session via X-Author-Username header or browser session cookie.'
-    },
-    endpoints: [
-      {
-        path: '/api/extension/status',
-        method: 'GET',
-        description: 'Get authenticated author extension status, portfolio stats, and managed teams for the author currently logged in on the site.',
-        headers: { 'X-Author-Username': 'alex_chen' },
-        responseExample: {
-          success: true,
-          authenticatedAuthor: { username: 'alex_chen', role: 'Staff AI Engineer' }
-        }
-      },
-      {
-        path: '/api/extension/portfolio',
-        method: 'POST',
-        description: 'Send web capture, code snippet, notebook link, or article directly to logged-in author portfolio feed.',
-        headers: { 'X-Author-Username': 'alex_chen', 'Content-Type': 'application/json' },
-        bodyExample: {
-          title: 'Agentic Tool Calling in Gemini 2.5',
-          description: 'Clipped code example from Google AI documentation.',
-          url: 'https://ai.google.dev/gemini-api/docs/tools',
-          sourcePlatform: 'gemini',
-          tags: ['Gemini', 'Tools', 'Python'],
-          isFeatured: true
-        }
-      },
-      {
-        path: '/api/extension/profile',
-        method: 'PUT',
-        description: 'Edit logged-in author profile display name, role, bio markdown, and public contacts.',
-        headers: { 'X-Author-Username': 'alex_chen', 'Content-Type': 'application/json' },
-        bodyExample: {
-          displayName: 'Alex Chen',
-          role: 'Principal AI Architect',
-          bioMarkdown: '# Updated Bio via Extension...'
-        }
-      },
-      {
-        path: '/api/extension/team',
-        method: 'PUT',
-        description: 'Edit team page title, markdown description, or team avatar for logged-in author.',
-        headers: { 'X-Author-Username': 'alex_chen', 'Content-Type': 'application/json' },
-        bodyExample: {
-          teamSlug: 'quantum-ai-guild',
-          name: 'Quantum AI & Agentic Guild',
-          descriptionMarkdown: '# Updated Guild Mission...'
-        }
-      }
-    ]
   });
 });
 

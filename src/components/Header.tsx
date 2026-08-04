@@ -13,25 +13,18 @@ import {
   CheckCircle2, 
   Grid2X2,
   PlusCircle,
-  ShieldAlert,
-  Sun,
-  Moon,
-  Monitor,
-  Globe,
-  Puzzle
+  ShieldAlert
 } from 'lucide-react';
 
 interface HeaderProps {
   currentUser: Author | null;
-  activeTab: 'feed' | 'teams' | 'referrals' | 'cli' | 'matrix' | 'promo' | 'extension_api';
-  setActiveTab: (tab: 'feed' | 'teams' | 'referrals' | 'cli' | 'matrix' | 'promo' | 'extension_api') => void;
+  activeTab: 'feed' | 'teams' | 'referrals' | 'cli' | 'matrix';
+  setActiveTab: (tab: 'feed' | 'teams' | 'referrals' | 'cli' | 'matrix') => void;
   allAuthors: Author[];
   onSwitchUser: (username: string) => void;
   onOpenSignIn: () => void;
   activeReferralCode: string | null;
   onLogout: () => void;
-  theme: 'system' | 'light' | 'dark';
-  setTheme: (theme: 'system' | 'light' | 'dark') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -42,30 +35,25 @@ export const Header: React.FC<HeaderProps> = ({
   onSwitchUser,
   onOpenSignIn,
   activeReferralCode,
-  onLogout,
-  theme,
-  setTheme
+  onLogout
 }) => {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 bg-slate-900 dark:bg-slate-950 border-b border-slate-800 text-slate-100 shadow-sm transition-colors duration-200">
+    <header className="sticky top-0 z-40 bg-[#0F172A] border-b border-slate-800 text-slate-100 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         
-        {/* Brand Logo with Black / White Connection Icon */}
-        <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setActiveTab('feed')}>
-          <div className="h-7 w-7 bg-white text-slate-900 dark:bg-slate-100 dark:text-slate-900 rounded flex items-center justify-center font-mono text-xs font-bold shadow-sm ring-1 ring-slate-700 transition-transform group-hover:scale-105">
-            {/* Black & White Connections Symbol */}
-            <svg className="w-4 h-4 fill-current text-slate-900" viewBox="0 0 24 24">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-            </svg>
+        {/* Brand Logo */}
+        <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveTab('feed')}>
+          <div className="h-6 w-6 bg-blue-500 rounded-sm flex items-center justify-center text-white font-mono text-xs font-bold">
+            C
           </div>
           <div>
             <div className="flex items-center gap-2">
               <span className="font-bold tracking-tighter text-lg text-white font-mono">
                 COLLECTIVE.SYS
               </span>
-              <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 font-semibold">
+              <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-slate-800 text-blue-400 border border-slate-700 font-semibold">
                 GATED_SYS
               </span>
             </div>
@@ -78,7 +66,7 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={() => setActiveTab('feed')}
             className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs font-medium transition-all cursor-pointer ${
               activeTab === 'feed'
-                ? 'bg-blue-600 text-white font-semibold shadow-sm'
+                ? 'bg-blue-600 text-white font-semibold'
                 : 'text-slate-400 hover:text-white hover:bg-slate-800'
             }`}
           >
@@ -90,7 +78,7 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={() => setActiveTab('teams')}
             className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs font-medium transition-all cursor-pointer ${
               activeTab === 'teams'
-                ? 'bg-blue-600 text-white font-semibold shadow-sm'
+                ? 'bg-blue-600 text-white font-semibold'
                 : 'text-slate-400 hover:text-white hover:bg-slate-800'
             }`}
           >
@@ -102,7 +90,7 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={() => setActiveTab('referrals')}
             className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs font-medium transition-all cursor-pointer ${
               activeTab === 'referrals'
-                ? 'bg-blue-600 text-white font-semibold shadow-sm'
+                ? 'bg-blue-600 text-white font-semibold'
                 : 'text-slate-400 hover:text-white hover:bg-slate-800'
             }`}
           >
@@ -114,7 +102,7 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={() => setActiveTab('cli')}
             className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs font-medium transition-all cursor-pointer ${
               activeTab === 'cli'
-                ? 'bg-blue-600 text-white font-semibold shadow-sm'
+                ? 'bg-blue-600 text-white font-semibold'
                 : 'text-slate-400 hover:text-white hover:bg-slate-800'
             }`}
           >
@@ -126,73 +114,18 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={() => setActiveTab('matrix')}
             className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs font-medium transition-all cursor-pointer ${
               activeTab === 'matrix'
-                ? 'bg-blue-600 text-white font-semibold shadow-sm'
+                ? 'bg-blue-600 text-white font-semibold'
                 : 'text-slate-400 hover:text-white hover:bg-slate-800'
             }`}
           >
             <Grid2X2 className="w-3.5 h-3.5 opacity-80" />
             Integration Hub
           </button>
-
-          <button
-            onClick={() => setActiveTab('extension_api')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs font-medium transition-all cursor-pointer ${
-              activeTab === 'extension_api'
-                ? 'bg-blue-600 text-white font-semibold shadow-sm'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
-            }`}
-          >
-            <Puzzle className="w-3.5 h-3.5 text-blue-400" />
-            <span>Extension REST API</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('promo')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs font-medium transition-all cursor-pointer ${
-              activeTab === 'promo'
-                ? 'bg-slate-100 text-slate-900 font-bold shadow-sm'
-                : 'text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-700/80'
-            }`}
-          >
-            <Globe className="w-3.5 h-3.5 text-emerald-400" />
-            <span>White Promo Page</span>
-          </button>
         </nav>
 
-        {/* Right Action, Theme Toggle & User Profile Section */}
+        {/* Right Action & User Profile Section */}
         <div className="flex items-center gap-3">
           
-          {/* Theme Mode Switcher */}
-          <div className="flex items-center p-0.5 rounded-lg bg-slate-800/90 border border-slate-700">
-            <button
-              onClick={() => setTheme('light')}
-              title="Light Theme"
-              className={`p-1.5 rounded-md transition-colors cursor-pointer ${
-                theme === 'light' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Sun className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={() => setTheme('dark')}
-              title="Dark Theme"
-              className={`p-1.5 rounded-md transition-colors cursor-pointer ${
-                theme === 'dark' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Moon className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={() => setTheme('system')}
-              title="System Default Theme"
-              className={`p-1.5 rounded-md transition-colors cursor-pointer ${
-                theme === 'system' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Monitor className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
           {/* Active Referral Invite Tag */}
           {activeReferralCode && (
             <div 

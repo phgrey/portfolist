@@ -1,1 +1,6 @@
-{"name":"portfolist.node.srv","description":"Integration-based portfolio aggregator with referral gating, Gemini notebook parsing, team collectives, and CLI management.","requestFramePermissions":[],"majorCapabilities":["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]}
+{
+  "name": "Collective Portfolio System",
+  "description": "Integration-based portfolio aggregator with referral gating, Gemini notebook parsing, team collectives, and CLI management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

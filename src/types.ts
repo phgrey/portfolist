@@ -130,27 +130,8 @@ export interface PortfolioItem {
   url: string;
   contentPayload: PortfolioItemPayload;
   isFeatured: boolean;
-  isAuthorOwner?: boolean;
   syncedAt: string;
   tags: string[];
-}
-
-export interface AiTeamRoleAssignment {
-  authorUsername: string;
-  displayName: string;
-  avatarUrl: string;
-  recommendedRole: string;
-  contributionSummary: string;
-  keySkills: string[];
-}
-
-export interface AiTeamCombination {
-  mode: 'project' | 'permanent';
-  teamName: string;
-  synergyScore: number;
-  rationale: string;
-  roles: AiTeamRoleAssignment[];
-  suggestedMilestones: string[];
 }
 
 export interface AuthState {
