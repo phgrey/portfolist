@@ -133,7 +133,7 @@ export default function App() {
         activeTab={activeTab === 'author_view' ? 'feed' : activeTab}
         setActiveTab={(tab) => {
           setActiveTab(tab);
-          if (tab !== 'author_view') setSelectedAuthorUsername(null);
+          setSelectedAuthorUsername(null);
         }}
         allAuthors={allAuthors}
         onSwitchUser={handleSwitchUser}

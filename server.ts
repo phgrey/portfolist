@@ -4,6 +4,13 @@ import { createServer as createViteServer } from 'vite';
 import { Author, ReferralToken, Team, PortfolioItem, PlatformType } from './src/types';
 import { warmupCacheFromFirestore, queueDocumentWrite, startPeriodicSync } from './src/services/firestoreSync';
 import { mongoDb } from './src/services/mongoFirestore';
+import { saveProjectSet, getProjectSets, getProjectSetByName } from './src/services/agentMemory';
+import { analyzeProjectSet } from './agent/skills/authorProfiler';
+import { GoogleGenAI } from '@google/genai';
+
+const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+const aiClient = apiKey ? new GoogleGenAI({ apiKey }) : undefined;
+
 
 const app = express();
 const PORT = 3000;
@@ -513,6 +520,67 @@ app.put('/api/authors/:username', (req, res) => {
   if (req.body.contactMethods !== undefined) author.contactMethods = req.body.contactMethods;
 
   res.json({ success: true, author });
+});
+
+// Author Custom Project Sets & Agent Memory Skill Analysis
+app.get('/api/authors/:username/project-sets', async (req, res) => {
+  try {
+    const author = db.authors.find(a => a.username.toLowerCase() === req.params.username.toLowerCase());
+    const authorIdOrUsername = author ? author.id : req.params.username;
+    const projectSets = await getProjectSets(authorIdOrUsername);
+    res.json({ success: true, projectSets });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || String(err) });
+  }
+});
+
+app.post('/api/authors/:username/project-sets', async (req, res) => {
+  try {
+    const { setName, repoList, isPublic = false } = req.body;
+    if (!setName || !Array.isArray(repoList) || repoList.length === 0) {
+      return res.status(400).json({ error: 'setName and non-empty repoList array are required' });
+    }
+
+    const author = db.authors.find(a => a.username.toLowerCase() === req.params.username.toLowerCase());
+    const authorId = author ? author.id : `usr_${req.params.username}`;
+    const authorUsername = author ? author.username : req.params.username;
+
+    const projectSet = await saveProjectSet(authorId, authorUsername, setName, repoList, isPublic);
+    res.json({ success: true, projectSet });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || String(err) });
+  }
+});
+
+app.post('/api/authors/:username/project-sets/:setName/analyze', async (req, res) => {
+  try {
+    const { forceRefresh = false, repoList: bodyRepos } = req.body || {};
+    const author = db.authors.find(a => a.username.toLowerCase() === req.params.username.toLowerCase());
+    const authorIdOrUsername = author ? author.id : req.params.username;
+
+    const existingSet = await getProjectSetByName(authorIdOrUsername, req.params.setName);
+    const reposToAnalyze = existingSet ? existingSet.repoList : bodyRepos;
+
+    if (!reposToAnalyze || !Array.isArray(reposToAnalyze) || reposToAnalyze.length === 0) {
+      return res.status(404).json({
+        error: `Project set "${req.params.setName}" not found for author "${req.params.username}", and no repoList provided in body.`
+      });
+    }
+
+    const startTime = Date.now();
+    const result = await analyzeProjectSet(reposToAnalyze, aiClient, forceRefresh);
+    const durationMs = Date.now() - startTime;
+
+    res.json({
+      success: true,
+      setName: req.params.setName,
+      isCacheHit: durationMs < 50,
+      durationMs,
+      analysis: result
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || String(err) });
+  }
 });
 
 // Teams

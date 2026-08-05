@@ -1,6 +1,5 @@
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore, Firestore, WriteBatch } from 'firebase-admin/firestore';
-import * as functions from 'firebase-functions';
 
 interface PendingWrite {
   collection: string;
@@ -14,12 +13,10 @@ const pendingWriteQueue: Map<string, PendingWrite> = new Map();
 let isSyncActive = false;
 
 /**
- * Access db_url from firebase-functions config or environment fallback
- * TODO: test the function
+ * Access db_url from environment variables
  */
 export function getDbUrl(): string | undefined {
-  return process.env?.DB_URL
-    || functions.config()?.app?.db_url;
+  return process.env?.DB_URL;
 }
 
 /**

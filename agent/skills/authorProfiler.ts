@@ -2,6 +2,7 @@ import { GoogleGenAI } from '@google/genai';
 import { analyzeRepo, RepoAnalysisResult } from './repoAnalyzer';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { getCachedAnalysis, saveCachedAnalysis, generateCacheKey } from '../../src/services/agentMemory';
 
 const execFileAsync = promisify(execFile);
 
@@ -14,6 +15,33 @@ export interface AuthorProfileResult {
   weaknesses: string[];
   repoAnalyses: RepoAnalysisResult[];
   synthesis: string;
+}
+
+/**
+ * Skill 2B: Analyze a custom project set of GitHub repositories with 2-tier memory caching
+ */
+export async function analyzeProjectSet(
+  repoList: string[],
+  aiClient?: GoogleGenAI,
+  forceRefresh: boolean = false
+): Promise<AuthorProfileResult> {
+  const cacheKey = generateCacheKey(repoList);
+
+  if (!forceRefresh) {
+    const cached = await getCachedAnalysis(cacheKey);
+    if (cached?.result) {
+      console.log(`⚡ [authorProfiler] Returning cached skill analysis for ${repoList.length} repos (Key: ${cacheKey})`);
+      return cached.result as AuthorProfileResult;
+    }
+  }
+
+  console.log(`🔍 [authorProfiler] Cache miss/refresh. Running full skill analysis for ${repoList.length} repos...`);
+  const result = await analyzeAuthorRepos(repoList, aiClient);
+
+  // Persist result to 2-tier memory (L1 RAM + L2 Firestore)
+  await saveCachedAnalysis(cacheKey, repoList, result);
+
+  return result;
 }
 
 /**
@@ -136,3 +164,4 @@ Synthesize a comprehensive software engineer profile covering:
     synthesis
   };
 }
+

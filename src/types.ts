@@ -143,3 +143,23 @@ export interface AuthState {
     remainingUses: number;
   } | null;
 }
+
+export interface AuthorProjectSet {
+  id: string;
+  authorId: string;
+  authorUsername: string;
+  setName: string;
+  repoList: string[];
+  isPublic: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CachedAnalysis {
+  id: string;
+  cacheKey: string;
+  repoList: string[];
+  result: any;
+  cachedAt: string;
+}
+

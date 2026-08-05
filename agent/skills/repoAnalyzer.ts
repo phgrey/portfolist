@@ -51,7 +51,7 @@ export async function analyzeRepo(repoName: string, aiClient?: GoogleGenAI): Pro
   // 1. Fetch metadata via gh CLI
   const meta = await runGhCommand([
     'repo', 'view', repoName,
-    '--json', 'name,owner,stargazerCount,forkCount,description,primaryLanguage,languages,isArchived,pushedAt,issueCount'
+    '--json', 'name,owner,stargazerCount,forkCount,description,primaryLanguage,languages,isArchived,pushedAt'
   ]);
 
   // Handle fallback if gh CLI returns error or repo not found
