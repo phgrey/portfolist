@@ -20,3 +20,5 @@ View your app in AI Studio: https://ai.studio/apps/db52c7c5-def3-4d5c-86d0-c1fde
    `npm run dev`
 
 
+# agent 
+is described here file://./docs/agent.md

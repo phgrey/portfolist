@@ -5,6 +5,9 @@ import { matchAuthorToPosition } from '../../agent/skills/positionMatcher';
 import { compareEntities } from '../../agent/skills/entityComparer';
 import { getProjectSets } from './agentMemory';
 import { resolvePositionDocument } from './positionFetcher';
+import { gitHubAppProvider } from './providers/GitHubAppProvider';
+import { linkedInProvider } from './providers/LinkedInProvider';
+import { googleDocsProvider } from './providers/GoogleDocsProvider';
 
 export interface ProcessMessageOptions {
   message: string;
@@ -177,7 +180,13 @@ export async function processAgentMessage(options: ProcessMessageOptions): Promi
     if (projectSets.length > 0 && projectSets[0].repoList.length > 0) {
       profile = await analyzeProjectSet(projectSets[0].repoList, aiClient);
     } else {
-      profile = await analyzeAuthorRepos(authorUsername, aiClient);
+      // Layer 1 Connector: Fetch raw user data via GitHubAppProvider tool
+      const rawUser = await gitHubAppProvider.fetchRawUserData(authorUsername);
+      const reposToAnalyze = rawUser.repos && rawUser.repos.length > 0 
+        ? rawUser.repos.map(r => r.repoName)
+        : authorUsername;
+
+      profile = await analyzeAuthorRepos(reposToAnalyze, aiClient);
     }
 
     const reply = `👤 **Developer Profile: ${profile.authorUsername}**\n\n` +
