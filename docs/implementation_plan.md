@@ -1,86 +1,57 @@
-# Implementation Plan - 4-Layer System Architecture with Pluggable Analytics Spaces
+# Implementation Plan - Direct Native GitHub OAuth 2.0 (No Firebase Dependency)
 
-Structure the codebase into a clean, decoupled **4-Layer Architecture**, with Layer 2 explicitly designed as **Pluggable Analytics Spaces**:
+Replace client-side Firebase Auth with **Direct Native GitHub OAuth 2.0**. Gives 100% control over the `redirect_uri`, removes all Firebase SDK setup errors, and works seamlessly with local and production server callback URLs.
 
 ---
 
-## 1. System Architecture Diagram
+## 1. Direct Native OAuth 2.0 Flow
+
+* **Zero Firebase Auth Dependencies**: No `auth/api-key-not-valid`, `operation-not-allowed`, or Firebase domain restrictions.
+* **Full Control of `redirect_uri`**: Set callback URL directly to `http://localhost:3000/api/auth/github/callback` (or production domain).
+* **Direct Access Token Handling**: Server gets the GitHub Access Token directly and stores it in the user's `integrations` matrix for Layer 1 Data Providers (`GitHubAppProvider.ts`).
 
 ```mermaid
 flowchart TD
-    subgraph Layer0["Layer 0: Agent Input / Output Delivery Channels"]
-        WebUIChannel["Web UI Chat Drawer\n(AgentChatDrawer.tsx / POST /api/chat)"]
-        TelegramChannel["Telegram Bot Gateway\n(agent/telegramBot.ts)"]
-        CLIChannel["CLI Interactive Runner\n(agent/candidateAgent.ts)"]
-    end
-
-    subgraph Layer3["Layer 3: Agent Core Engine & 2-Tier Memory"]
-        AgentEngine["agentEngine.ts\n(Intent Classifier & Dialogue Synthesis)"]
-        EntityMemory[("entityMemory.ts & agentMemory.ts\n(L1 Process RAM + L2 Cloud Firestore)")]
-    end
-
-    subgraph Layer1["Layer 1: Raw Data Provider Connectors (Tools)"]
-        GithubProvider["GitHubAppProvider.ts\n(Fetches public & private repos via GitHub App)"]
-        LinkedinProvider["LinkedInProvider.ts\n(Fetches profile & career history via LinkedIn API)"]
-        GoogleDocsProvider["GoogleDocsProvider.ts\n(Fetches Google Docs specs & resumes)"]
-    end
-
-    subgraph Layer2["Layer 2: Pluggable Analytics Spaces (agent/skills/)"]
-        subgraph FitSpace["Position-Match & Fit Analytics Space"]
-            PositionMatcher["positionMatcher.ts"]
-            EntityComparer["entityComparer.ts"]
-        end
-
-        subgraph CodeSpace["Code & Repo Quality Analytics Space"]
-            RepoAnalyzer["repoAnalyzer.ts"]
-        end
-
-        subgraph TalentSpace["Talent Archetype & CV Analytics Space"]
-            CvAnalyzer["cvAnalyzer.ts"]
-            AuthorProfiler["authorProfiler.ts"]
-        end
-
-        subgraph FutureSpaces["Future Analytics Spaces (Pluggable)"]
-            CompBenchmarking["Compensation & Salary Analytics Space"]
-            TeamCulture["Team Compatibility Analytics Space"]
-            PeerReview["Technical Depth & Code Review Analytics Space"]
-        end
-    end
-
-    WebUIChannel & TelegramChannel & CLIChannel <-->|Unified Message Payload| AgentEngine
-    AgentEngine <--> EntityMemory
-
-    AgentEngine -->|Invoke Data Tool| Layer1
-    Layer1 -->|Raw Text & Code| Layer2
-    Layer2 -->|Analyzed Skills & Space Metrics| AgentEngine
+    User["User on Web App"] -->|1. Click 'Sign in with GitHub'| FrontOAuth["Direct OAuth Authorization\n(github.com/login/oauth/authorize)"]
+    
+    FrontOAuth -->|2. User approves| GitHubServer["GitHub OAuth Server"]
+    
+    GitHubServer -->|3. Redirect with code| ServerCallback["Express Backend Endpoint\n(GET /api/auth/github/callback)"]
+    
+    ServerCallback -->|4. Exchange code for Access Token| GitHubTokenEP["POST github.com/login/oauth/access_token"]
+    GitHubTokenEP -->|5. Fetch User Profile| GitHubUserEP["GET api.github.com/user"]
+    
+    GitHubUserEP -->|6. Upsert Author & Save Token| DB[("Database & 2-Tier Memory\n(authors collection)")]
+    DB -->|7. Redirect back to App| WebApp["Portfolio Web App\n(Logged in as Verified Author!)"]
 ```
 
 ---
 
 ## Proposed Changes
 
-### Layer 1: Data Provider Connectors (`src/services/providers/`)
+### Backend & Direct OAuth Routes
 
-#### [NEW] [src/services/providers/BaseProvider.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/services/providers/BaseProvider.ts)
-- Abstract interface `IDataProvider`:
-  - `providerId: PlatformType`
-  - `fetchRawUserData(username: string): Promise<RawUserData>`
-  - `fetchRawRepositoryData(repoName: string): Promise<RawRepoData>`
+#### [MODIFY] [server.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/server.ts)
+- Add direct OAuth authorization and callback endpoints:
+  - `GET /api/auth/github/login`: Redirects browser to `https://github.com/login/oauth/authorize?client_id=...&scope=read:user,repo`.
+  - `GET /api/auth/github/callback`: Receives `code`, exchanges for `access_token`, fetches `api.github.com/user`, creates/upserts author, and redirects user back to `/?login=success&user=${username}`.
 
-#### [NEW] [src/services/providers/GitHubAppProvider.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/services/providers/GitHubAppProvider.ts)
-- Implementation fetching raw repo code and metadata via GitHub App credentials.
+---
 
-#### [NEW] [src/services/providers/LinkedInProvider.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/services/providers/LinkedInProvider.ts)
-- Pluggable provider fetching raw LinkedIn profile, work experience, and recommendations.
+### Frontend UI Updates
+
+#### [MODIFY] [src/services/authProviders.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/services/authProviders.ts)
+- Update `loginWithOAuthProvider` to use direct native server redirect (`window.location.href = '/api/auth/github/login'`).
+
+#### [MODIFY] [src/components/OAuthModal.tsx](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/components/OAuthModal.tsx)
+- Connect GitHub button directly to `/api/auth/github/login`.
 
 ---
 
 ## Verification Plan
 
 ### Automated Verification
-1. **Provider Abstraction Check**:
-   - Verify `GitHubAppProvider` and `LinkedInProvider` implement `IDataProvider`.
-2. **Channel & Space Routing Check**:
-   - Verify Web UI and Telegram Bot route through `agentEngine.ts` to Layer 2 Analytics Spaces.
-3. **Type Check & Build**:
+1. **Direct OAuth Callback Endpoint**:
+   - Access `GET /api/auth/github/login` -> Confirm redirect to GitHub authorization URL with proper `client_id` & `redirect_uri`.
+2. **Type Check & Build**:
    - Run `npx tsc --noEmit` and `npm run build`.

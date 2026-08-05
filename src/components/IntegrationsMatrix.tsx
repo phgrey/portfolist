@@ -162,7 +162,7 @@ export const IntegrationsMatrix: React.FC<IntegrationsMatrixProps> = ({ currentU
         <div className="flex items-center gap-3">
           {/* 1-CLICK GITHUB APP INSTALLATION BUTTON */}
           <a
-            href={import.meta.env?.VITE_GITHUB_APP_INSTALL_URL || 'https://github.com/apps/portfolist-candidate-agent/installations/new'}
+            href={`https://github.com/apps/${import.meta.env.GITHUB_APP_CLIENT_NAME || 'posrtfolist'}/installations/new`}
             target="_blank"
             rel="noreferrer"
             className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg shadow-md flex items-center gap-2 transition-all hover:scale-105 border border-slate-700"

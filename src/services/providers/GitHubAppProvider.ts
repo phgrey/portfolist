@@ -10,11 +10,9 @@ export class GitHubAppProvider implements IDataProvider {
   name = 'GitHub App Provider (Public & Private Repos)';
 
   private clientId: string;
-  private clientSecret: string;
 
   constructor() {
-    this.clientId = process.env.GITHUB_APP_CLIENT_ID || process.env.GITHUB_CLIENT_ID || '';
-    this.clientSecret = process.env.GITHUB_APP_CLIENT_SECRET || process.env.GITHUB_CLIENT_SECRET || '';
+    this.clientId = process.env.GITHUB_APP_CLIENT_ID || process.env.GITHUB_AUTH_CLIENT_ID || '';
   }
 
   async fetchRawUserData(username: string): Promise<RawUserData> {

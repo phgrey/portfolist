@@ -86,6 +86,10 @@ export async function loginWithOAuthProvider(providerId: PlatformType = 'github'
   const firebaseUser = userCredential.user;
   const idToken = await firebaseUser.getIdToken();
 
+  // Extract OAuth Access Token from Firebase Credential Result
+  const credential = GithubAuthProvider.credentialFromResult(userCredential) || GoogleAuthProvider.credentialFromResult(userCredential);
+  const accessToken = credential?.accessToken;
+
   // Extract GitHub username or display info if present
   let username = firebaseUser.email?.split('@')[0] || `user_${firebaseUser.uid.slice(0, 6)}`;
   // Check github additional user info
@@ -94,14 +98,15 @@ export async function loginWithOAuthProvider(providerId: PlatformType = 'github'
     username = reloadData._tokenResponse.screenName;
   }
 
-  console.log(`✅ [OAuth Client] Successfully authenticated as @${username}. Syncing with server...`);
+  console.log(`✅ [OAuth Client] Successfully authenticated as @${username} (Access Token obtained: ${accessToken ? 'YES' : 'NO'}). Syncing with server...`);
 
-  // Verify ID Token with Express Server
+  // Verify ID Token & OAuth Access Token with Express Server
   const response = await fetch('/api/auth/verify-token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       idToken,
+      accessToken,
       provider: providerId,
       username,
       displayName: firebaseUser.displayName || username,
@@ -139,12 +144,15 @@ export async function linkAdditionalProvider(providerId: PlatformType): Promise<
 
   const userCredential = await linkWithPopup(clientAuth.currentUser, provider);
   const idToken = await userCredential.user.getIdToken();
+  const credential = GithubAuthProvider.credentialFromResult(userCredential) || GoogleAuthProvider.credentialFromResult(userCredential);
+  const accessToken = credential?.accessToken;
 
   const response = await fetch('/api/auth/verify-token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       idToken,
+      accessToken,
       provider: providerId,
       username: clientAuth.currentUser.email?.split('@')[0] || 'linked_user',
       displayName: clientAuth.currentUser.displayName,

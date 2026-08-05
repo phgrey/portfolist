@@ -97,7 +97,7 @@ export const AuthorProfile: React.FC<AuthorProfileProps> = ({
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
-  const githubAppInstallUrl = import.meta.env?.VITE_GITHUB_APP_INSTALL_URL || `https://github.com/apps/portfolist-candidate-agent/installations/new`;
+  const githubAppInstallUrl = `https://github.com/apps/${import.meta.env.GITHUB_APP_CLIENT_NAME || 'posrtfolist'}/installations/new`;
 
   return (
     <div className="space-y-6 animate-fadeIn">

@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore, Firestore, WriteBatch } from 'firebase-admin/firestore';
 
@@ -174,7 +177,11 @@ export async function flushPendingWritesToFirestore(): Promise<number> {
       await batch.commit();
       totalCommitted += chunk.length;
     } catch (err: any) {
-      console.error(`❌ [Firestore Sync] Failed to commit batch: ${err.message || String(err)}`);
+      if (String(err).includes('5 NOT_FOUND') || String(err).includes('NOT_FOUND')) {
+        console.warn(`ℹ️ [Firestore Sync] Cloud Firestore database instance not created yet on GCP. Operating in 2-tier L1 RAM cache mode.`);
+      } else {
+        console.error(`❌ [Firestore Sync] Failed to commit batch: ${err.message || String(err)}`);
+      }
       // Re-queue failed items
       chunk.forEach(([key, item]) => pendingWriteQueue.set(key, item));
     }

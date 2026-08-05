@@ -54,11 +54,25 @@ export default function App() {
   // Check URL parameters on mount
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
+    const loginStatus = urlParams.get('login');
+    const loggedUser = urlParams.get('user');
     const refCode = urlParams.get('ref') || urlParams.get('invite');
-    
+
     if (refCode) {
       setActiveReferralCode(refCode.toUpperCase());
       setIsSignInOpen(true);
+    } else if (loginStatus === 'success' && loggedUser) {
+      fetch(`/api/authors/${loggedUser}`)
+        .then(res => res.json())
+        .then(author => {
+          if (author && author.username) {
+            setCurrentUser(author);
+          }
+        })
+        .catch(err => console.error('Error fetching logged in user:', err));
+
+      // Clean up URL parameters
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
 
@@ -340,6 +354,7 @@ export default function App() {
       <OAuthModal
         isOpen={isSignInOpen}
         onClose={() => setIsSignInOpen(false)}
+        referralCode={activeReferralCode}
         onLoginSuccess={(aut) => {
           setCurrentUser(aut);
           fetchData();
