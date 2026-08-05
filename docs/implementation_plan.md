@@ -1,138 +1,83 @@
-# Implementation Plan - Universal Entity Agent Skills & Multi-Entity Matrix Comparison
+# Implementation Plan - Complete 4-Layer System Architecture (Channels, Providers, Skills, Engine)
 
-Expand the Candidate Agent into a **Universal Portfolio Entity System**, enabling the agent to analyze, classify, and compare **any portfolio entity** (**`repo`**, **`cv`**, **`position`**, **`research`**) against any other entity in terms of **skills** and **working conditions**.
+Refactor and structure the codebase into a clean **4-Layer Architecture**:
+1. **Layer 0: Communication Delivery Channels (`agent/channels/`)** — Telegram Bot, Web UI Chat Drawer (`AgentChatDrawer.tsx`), and CLI Runner.
+2. **Layer 1: Raw Data Provider Connectors (`src/services/providers/`)** — GitHub App (Public/Private repos), LinkedIn, Google Docs.
+3. **Layer 2: Specialized Analysis Skills (`agent/skills/`)** — Repositories, CVs, Position Specs, Candidate Profiler, Matrix Comparer.
+4. **Layer 3: Agent Core & 2-Tier Memory (`src/services/`)** — Orchestration engine & L1 RAM + L2 Firestore caching.
 
 ---
 
-## 1. Database & Agent Memory Structures (Cloud Firestore / MongoDB)
-
-### A. DB Collections (`src/services/mongoFirestore.ts` & Firestore)
-
-1. **`portfolio_entities` Collection**:
-   Stores parsed metadata, extracted skills, and conditions for any portfolio item.
-   ```typescript
-   export interface PortfolioEntity {
-     id: string; // e.g. "ent_cv_usr_alex_01" or "ent_repo_phgrey_grafin"
-     authorId: string;
-     authorUsername: string;
-     entityType: 'repo' | 'cv' | 'position' | 'research';
-     title: string;
-     sourceUrl?: string;
-     contentRaw: string; // Raw CV text, job description, or repo summary
-     extractedSkills: {
-       primaryLanguages: string[];
-       frameworksAndTools: string[];
-       domainExpertise: string[];
-       softSkills: string[];
-     };
-     conditions?: {
-       experienceLevel?: string; // e.g. "Senior", "Lead", "Architect"
-       workMode?: 'remote' | 'hybrid' | 'onsite';
-       location?: string;
-       keyRequirements?: string[];
-     };
-     updatedAt: string;
-   }
-   ```
-
-2. **`cached_comparisons` Collection**:
-   Caches cross-entity skill & condition comparison matrices across server restarts.
-   ```typescript
-   export interface CachedEntityComparison {
-     id: string; // Deterministic key: "cmp_<entityA_id>__vs__<entityB_id>"
-     entityAId: string;
-     entityBId: string;
-     matchScore: number; // 0 to 100
-     skillOverlap: string[];
-     skillGaps: string[];
-     conditionMatches: string[];
-     conditionMismatches: string[];
-     detailedRationale: string;
-     cachedAt: string;
-   }
-   ```
-
-### B. 2-Tier Memory Caching Architecture
+## 1. System Architecture Diagram
 
 ```mermaid
 flowchart TD
-    Query["User / Agent Query\n'Compare CV vs Position'"] --> Engine["Unified Agent Engine\n(agentEngine.ts)"]
-    
-    Engine -->|1. Check L1 Memory| L1Map["L1 Process RAM Cache (<1ms)\n(l1EntityMap & l1ComparisonMap)"]
-    L1Map -->|L1 Hit| ReturnFast["Return Instant Matrix Result"]
-    
-    L1Map -->|L1 Miss| L2Store[("L2 Cloud Firestore Store\n(portfolio_entities & cached_comparisons)")]
-    L2Store -->|L2 Hit| WarmL1["Populate L1 RAM & Return"]
-    
-    L2Store -->|L2 Miss| Comparer["Skill 6: entityComparer"]
-    Comparer -->|Execute Skills| CVAnalyzer["Skill 4: cvAnalyzer"] & PosAnalyzer["Skill 5: positionAnalyzer"] & RepoAnalyzer["Skill 1: repoAnalyzer"]
-    Comparer -->|Synthesize Matrix| Gemini["Gemini 2.5 Flash"]
-    Gemini -->|Persist Result| L1Map & L2Store
+    subgraph Layer0["Layer 0: Agent Input / Output Channels"]
+        WebUIChannel["Web UI Chat Drawer\n(AgentChatDrawer.tsx / POST /api/chat)"]
+        TelegramChannel["Telegram Bot Gateway\n(agent/telegramBot.ts)"]
+        CLIChannel["CLI Interactive Runner\n(agent/candidateAgent.ts)"]
+    end
+
+    subgraph Layer3["Layer 3: Agent Core Engine & 2-Tier Memory"]
+        AgentEngine["agentEngine.ts\n(Intent Classifier & Dialogue Synthesis)"]
+        EntityMemory[("entityMemory.ts & agentMemory.ts\n(L1 Process RAM + L2 Cloud Firestore)")]
+    end
+
+    subgraph Layer1["Layer 1: Raw Data Provider Connectors (Tools)"]
+        GithubProvider["GitHubAppProvider.ts\n(Fetches public & private repos via GitHub App)"]
+        LinkedinProvider["LinkedInProvider.ts\n(Fetches profile & career history via LinkedIn API)"]
+        GoogleDocsProvider["GoogleDocsProvider.ts\n(Fetches Google Docs specs & resumes)"]
+    end
+
+    subgraph Layer2["Layer 2: Specialized Analysis Skills"]
+        RepoAnalyzer["repoAnalyzer.ts\n(Code structure, CI/CD, Prod readiness)"]
+        CvAnalyzer["cvAnalyzer.ts\n(Skills, career history, conditions)"]
+        PositionAnalyzer["positionAnalyzer.ts\n(Job spec requirements & conditions)"]
+        AuthorProfiler["authorProfiler.ts\n(Candidate archetype & strengths)"]
+        EntityComparer["entityComparer.ts\n(Universal cross-entity matrix evaluation)"]
+    end
+
+    WebUIChannel & TelegramChannel & CLIChannel <-->|Unified Message Payload| AgentEngine
+    AgentEngine <--> EntityMemory
+
+    AgentEngine -->|Invoke Data Tool| Layer1
+    Layer1 -->|Raw Text & Code| Layer2
+    Layer2 -->|Analyzed Skills & Matrices| AgentEngine
 ```
-
----
-
-## 2. New & Expanded Agent Skills
-
-We expand the Agent Skills Engine with 3 new specialized skills:
-
-| Skill | Module | Purpose |
-| :--- | :--- | :--- |
-| **Skill 1 (Existing)** | `repoAnalyzer.ts` | Inspects GitHub repositories for production readiness, stars, CI/CD, and languages. |
-| **Skill 2 (Existing)** | `authorProfiler.ts` | Aggregates repository profiles into developer archetype & overall strengths/weaknesses. |
-| **Skill 3 (Existing)** | `positionMatcher.ts` | Matches candidate repos against position requirements. |
-| **[NEW] Skill 4** | `cvAnalyzer.ts` | Parses CV / Resume documents, extracting work history, key skills, domain expertise, and developer preferences/conditions. |
-| **[NEW] Skill 5** | `positionAnalyzer.ts` | Parses Position Description documents (raw text or web URLs), extracting required skills, nice-to-haves, role level, and position conditions. |
-| **[NEW] Skill 6** | `entityComparer.ts` | Universal matrix comparison skill that compares **ANY Entity A** (`cv`, `repo`, `author`) against **ANY Entity B** (`position`, `cv`, `repo`), producing skill overlaps, missing gaps, condition compatibility, and fit score (0-100). |
 
 ---
 
 ## Proposed Changes
 
-### Data Models & Database Services
+### Layer 1: Data Provider Connectors (`src/services/providers/`)
 
-#### [MODIFY] [src/types.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/types.ts)
-- Add `PortfolioEntity` and `CachedEntityComparison` interfaces.
+#### [NEW] [src/services/providers/BaseProvider.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/services/providers/BaseProvider.ts)
+- Interface `IDataProvider`:
+  - `providerId: PlatformType`
+  - `fetchRawUserData(username: string): Promise<RawUserData>`
+  - `fetchRawRepositoryData(repoName: string): Promise<RawRepoData>`
 
-#### [NEW] [src/services/entityMemory.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/services/entityMemory.ts)
-- Manage L1 RAM and L2 Firestore caching for entities and cross-entity comparisons.
-- `savePortfolioEntity(...)`, `getPortfolioEntity(...)`, `getCachedComparison(...)`, `saveCachedComparison(...)`.
+#### [NEW] [src/services/providers/GitHubAppProvider.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/services/providers/GitHubAppProvider.ts)
+- Concrete provider fetching raw public & private repo code and metadata via GitHub App credentials.
 
----
-
-### New Skill Modules
-
-#### [NEW] [agent/skills/cvAnalyzer.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/agent/skills/cvAnalyzer.ts)
-- Skill to parse CV documents and extract structured skills & candidate conditions.
-
-#### [NEW] [agent/skills/positionAnalyzer.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/agent/skills/positionAnalyzer.ts)
-- Skill to parse Position description text or web page URLs and extract structured position requirements & conditions.
-
-#### [NEW] [agent/skills/entityComparer.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/agent/skills/entityComparer.ts)
-- Universal cross-entity comparison matrix logic. Evaluates skills overlap and condition alignment between any two portfolio entities.
+#### [NEW] [src/services/providers/LinkedInProvider.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/services/providers/LinkedInProvider.ts)
+- Pluggable provider fetching raw LinkedIn profile, work experience, and recommendations.
 
 ---
 
-### Agent Dialogue & UI Integration
+### Layer 0, 2 & 3 Integration
 
 #### [MODIFY] [src/services/agentEngine.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/services/agentEngine.ts)
-- Enhance intent routing to support universal cross-entity comparison queries:
-  - *"Compare CV [id] against Position [id/link]"*
-  - *"Compare repo [phgrey/grafin] against Position [link]"*
-  - *"Evaluate candidate conditions against position conditions"*
-
-#### [MODIFY] [src/components/AgentChatDrawer.tsx](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/components/AgentChatDrawer.tsx)
-- Add quick action pills for CV vs Position comparison and entity skill matrix analysis.
+- Receives messages from **Telegram (`telegramBot.ts`)** and **Web UI (`AgentChatDrawer.tsx`)**, routes intent, delegates to Layer 1 Data Providers & Layer 2 Analysis Skills, and caches in Layer 3 2-Tier Memory.
 
 ---
 
 ## Verification Plan
 
-### Automated & Integration Verification
-1. **Entity Parsing Test**:
-   - Parse sample CV text -> Verify extracted skills & experience conditions.
-   - Parse position link -> Verify extracted required skills & job conditions.
-2. **Universal Cross-Entity Matrix Test**:
-   - Compare CV vs Position Document -> Verify fit score, skill overlap, gaps, and condition matching.
-   - Compare Repo vs Position Document -> Verify technical readiness vs role requirements.
-   - 2nd comparison run -> Verify instant **<1ms** L1 RAM cache hit!
+### Automated Verification
+1. **Provider Abstraction Check**:
+   - Verify `GitHubAppProvider` and `LinkedInProvider` implement `IDataProvider`.
+2. **Channel Routing Check**:
+   - Verify Web UI and Telegram Bot pass payloads to `agentEngine.ts` and receive clean responses.
+3. **Type Check & Build**:
+   - Run `npx tsc --noEmit` and `npm run build`.

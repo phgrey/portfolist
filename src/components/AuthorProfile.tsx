@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Author, PortfolioItem, ReferralToken } from '../types';
@@ -11,7 +11,11 @@ import {
   Save, 
   MessageCircle, 
   Sparkles, 
-  RefreshCw
+  RefreshCw,
+  Github,
+  Bot,
+  ExternalLink,
+  CheckCircle2
 } from 'lucide-react';
 
 interface AuthorProfileProps {
@@ -34,6 +38,16 @@ export const AuthorProfile: React.FC<AuthorProfileProps> = ({
   const isSelf = currentUser?.username === author.username;
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [bioText, setBioText] = useState(author.bioMarkdown);
+
+  // GitHub App Banner Notice
+  const [appInstalledNotice, setAppInstalledNotice] = useState(false);
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('github_app') === 'installed') {
+      setAppInstalledNotice(true);
+    }
+  }, []);
 
   // Referral Token Generator State
   const [maxUses, setMaxUses] = useState(5);
@@ -83,9 +97,29 @@ export const AuthorProfile: React.FC<AuthorProfileProps> = ({
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
+  const githubAppInstallUrl = import.meta.env?.VITE_GITHUB_APP_INSTALL_URL || `https://github.com/apps/portfolist-candidate-agent/installations/new`;
+
   return (
     <div className="space-y-6 animate-fadeIn">
       
+      {/* GitHub App Installation Success Notice Banner */}
+      {appInstalledNotice && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-semibold flex items-center justify-between shadow-sm animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <span>
+              🎉 <strong>GitHub App Successfully Installed!</strong> AI Candidate Agent is autonomously walking and indexing your repositories in the background. Open the <strong>AI Agent Chat Drawer</strong> to ask queries!
+            </span>
+          </div>
+          <button
+            onClick={() => setAppInstalledNotice(false)}
+            className="text-emerald-700 hover:text-emerald-900 text-xs font-bold underline cursor-pointer"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Top Profile Header Card */}
       <div className="bg-white border border-slate-200 rounded-xl p-6 sm:p-8 shadow-sm relative overflow-hidden">
         
@@ -115,17 +149,32 @@ export const AuthorProfile: React.FC<AuthorProfileProps> = ({
             </div>
           </div>
 
-          {/* Contact Methods Badges */}
-          <div className="flex flex-wrap items-center gap-2">
-            {author.contactMethods.map((cm, idx) => (
-              <div
-                key={idx}
-                className="px-3 py-1 rounded-md bg-slate-50 border border-slate-200 text-xs text-slate-700 flex items-center gap-2"
+          {/* 1-CLICK GITHUB APP INSTALLATION BUTTON & Contact Methods */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            {isSelf && (
+              <a
+                href={`${githubAppInstallUrl}?author=${author.username}`}
+                target="_blank"
+                rel="noreferrer"
+                className="px-4 py-2 bg-gradient-to-r from-slate-900 to-indigo-950 hover:from-slate-800 hover:to-indigo-900 text-white font-bold text-xs rounded-lg shadow-md hover:shadow-lg hover:scale-[1.02] transition-all flex items-center gap-2 border border-indigo-500/30"
               >
-                <MessageCircle className="w-3.5 h-3.5 text-blue-600" />
-                <span className="font-mono">{cm.platform}: {cm.value}</span>
-              </div>
-            ))}
+                <Github className="w-4 h-4 text-white" />
+                <span>Install GitHub App on Repositories</span>
+                <ExternalLink className="w-3.5 h-3.5 text-indigo-300" />
+              </a>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2">
+              {author.contactMethods.map((cm, idx) => (
+                <div
+                  key={idx}
+                  className="px-3 py-1 rounded-md bg-slate-50 border border-slate-200 text-xs text-slate-700 flex items-center gap-2"
+                >
+                  <MessageCircle className="w-3.5 h-3.5 text-blue-600" />
+                  <span className="font-mono">{cm.platform}: {cm.value}</span>
+                </div>
+              ))}
+            </div>
           </div>
 
         </div>

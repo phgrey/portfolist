@@ -7,6 +7,7 @@ import { mongoDb } from './src/services/mongoFirestore';
 import { saveProjectSet, getProjectSets, getProjectSetByName } from './src/services/agentMemory';
 import { analyzeProjectSet } from './agent/skills/authorProfiler';
 import { processAgentMessage } from './src/services/agentEngine';
+import { walkAndIndexRepositories } from './src/services/githubAppWalker';
 import { GoogleGenAI } from '@google/genai';
 
 const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
@@ -491,6 +492,73 @@ app.post('/api/auth/login', (req, res) => {
     author: newAuthor,
     usedReferralCode: refToken.code
   });
+});
+
+// Multi-Provider OAuth Token Verification & Account Upsert
+app.post('/api/auth/verify-token', async (req, res) => {
+  try {
+    const { idToken, provider = 'github', username, displayName, avatarUrl, email } = req.body || {};
+    const safeUsername = (username || email?.split('@')[0] || `user_${Date.now().toString(36)}`).toLowerCase().replace(/[^a-z0-9_]/g, '');
+
+    let existingAuthor = db.authors.find(a => a.username.toLowerCase() === safeUsername);
+
+    if (!existingAuthor) {
+      existingAuthor = {
+        id: `usr_${safeUsername}`,
+        username: safeUsername,
+        displayName: displayName || safeUsername,
+        avatarUrl: avatarUrl || `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80`,
+        bioMarkdown: `# ${displayName || safeUsername}\n\nAuthenticated via **${provider.toUpperCase()} OAuth 2.0 Identity Platform**.`,
+        role: 'Verified Author',
+        createdAt: new Date().toISOString(),
+        integrations: [
+          { provider: provider as PlatformType, providerUserId: safeUsername, metadata: { username: safeUsername, email } }
+        ],
+        contactMethods: [
+          { platform: 'email', value: email || `${safeUsername}@workspace.dev`, isPublic: true }
+        ]
+      };
+
+      db.authors.push(existingAuthor);
+      queueDocumentWrite('authors', existingAuthor.id, existingAuthor);
+      console.log(`👤 [OAuth Server] Created new author "@${safeUsername}" via ${provider} OAuth.`);
+    } else {
+      // Ensure provider is listed in integrations matrix
+      const hasIntegration = existingAuthor.integrations.some(i => i.provider === provider);
+      if (!hasIntegration) {
+        existingAuthor.integrations.push({
+          provider: provider as PlatformType,
+          providerUserId: safeUsername,
+          metadata: { username: safeUsername, email }
+        });
+        queueDocumentWrite('authors', existingAuthor.id, existingAuthor);
+        console.log(`🔗 [OAuth Server] Linked provider "${provider}" to author "@${safeUsername}".`);
+      }
+    }
+
+    res.json({ success: true, status: 'authenticated', author: existingAuthor });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || String(err) });
+  }
+});
+
+// GitHub App Post-Installation Setup Callback Endpoint
+app.get('/api/auth/github/setup_callback', (req, res) => {
+  const installationId = (req.query.installation_id as string) || 'default_inst';
+  const setupAction = (req.query.setup_action as string) || 'install';
+  const authorUsername = (req.query.author as string) || 'alex_chen';
+
+  console.log(`🎉 [GitHub App Setup Callback] Received ${setupAction} redirect (Installation ID: ${installationId}) for @${authorUsername}`);
+
+  // Launch Autonomous Agent Walker in the background asynchronously
+  walkAndIndexRepositories({
+    authorUsername,
+    installationId,
+    aiClient
+  }).catch(err => console.error('❌ Background agent walker error:', err));
+
+  // Redirect user back to portfolio home with installation confirmation flag
+  res.redirect(`/?github_app=installed&author=${authorUsername}`);
 });
 
 // Authors list & single author

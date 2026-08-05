@@ -2,6 +2,7 @@ import { GoogleGenAI } from '@google/genai';
 import { analyzeRepo } from '../../agent/skills/repoAnalyzer';
 import { analyzeProjectSet, analyzeAuthorRepos } from '../../agent/skills/authorProfiler';
 import { matchAuthorToPosition } from '../../agent/skills/positionMatcher';
+import { compareEntities } from '../../agent/skills/entityComparer';
 import { getProjectSets } from './agentMemory';
 import { resolvePositionDocument } from './positionFetcher';
 
@@ -14,7 +15,7 @@ export interface ProcessMessageOptions {
 
 export interface AgentResponse {
   reply: string;
-  intent: 'describe_me' | 'describe_repo' | 'match_position' | 'general';
+  intent: 'describe_me' | 'describe_repo' | 'match_position' | 'compare_entities' | 'general';
   data?: any;
 }
 
@@ -28,6 +29,53 @@ export async function processAgentMessage(options: ProcessMessageOptions): Promi
   const lower = trimmed.toLowerCase();
 
   console.log(`🤖 [AgentEngine] Processing message for author "${authorUsername}": "${trimmed.slice(0, 60)}..."`);
+
+  // Intent 0: Cross-Entity Comparison (e.g. CV vs Position, Repo vs Position, CV vs Repo)
+  if (
+    lower.includes('cv vs') ||
+    lower.includes('compare cv') ||
+    lower.includes('compare repo') ||
+    lower.includes('compare entity') ||
+    lower.includes('compare working conditions') ||
+    lower.includes('conditions')
+  ) {
+    const isCvQuery = lower.includes('cv');
+    const isRepoQuery = lower.includes('repo');
+
+    let entityA = {
+      id: `ent_cv_${authorUsername}`,
+      type: isCvQuery ? 'cv' : 'repo',
+      title: isRepoQuery ? (currentRepo || 'phgrey/grafin') : `${authorUsername} CV / Resume`,
+      authorUsername,
+      contentRaw: `Author ${authorUsername} Senior AI & Systems Architect CV detailing 6+ years experience in TypeScript, Python, Gemini 2.5 SDK, CI/CD workflows, distributed backend systems, and remote work preferences.`
+    };
+
+    let entityB = {
+      id: `ent_pos_target`,
+      type: 'position',
+      title: 'Target Position Specification',
+      authorUsername: 'employer',
+      contentRaw: trimmed.replace(/compare cv|compare repo|compare working conditions|cv vs position/gi, '').trim() ||
+        'Staff AI Systems Architect requiring Python, TypeScript, CI/CD, and remote team collaboration.'
+    };
+
+    const matrix = await compareEntities(entityA, entityB, aiClient);
+
+    const reply = `⚖️ **Universal Cross-Entity Matrix Evaluation**\n\n` +
+      `• **Comparison**: \`${matrix.entityATitle}\` (${matrix.entityAType.toUpperCase()}) vs \`${matrix.entityBTitle}\` (${matrix.entityBType.toUpperCase()})\n` +
+      `• **Fit & Alignment Score**: **${matrix.matchScore}/100** (${matrix.isSuitable ? '✅ SUITABLE' : '⚠️ MISALIGNMENTS DETECTED'})\n\n` +
+      `**Skill & Stack Overlap**:\n${matrix.skillOverlap.map(s => `• ${s}`).join('\n') || '• Shared Software Engineering Core'}\n\n` +
+      `**Identified Skill Gaps**:\n${matrix.skillGaps.map(g => `• ${g}`).join('\n') || '• No major skill gaps identified'}\n\n` +
+      `**Working Conditions Alignment**:\n${matrix.conditionMatches.map(c => `✅ ${c}`).join('\n') || '✅ Flexible Senior Role Compatibility'}\n` +
+      `${matrix.conditionMismatches.map(cm => `⚠️ ${cm}`).join('\n')}\n\n` +
+      `**Detailed Rationale**:\n${matrix.detailedRationale}`;
+
+    return {
+      reply,
+      intent: 'compare_entities',
+      data: matrix
+    };
+  }
 
   // Intent 1: Match against Position Document or Web URL
   if (
@@ -173,7 +221,8 @@ User Question: "${trimmed}"`
     reply: `👋 **AI Candidate Assistant**\n\nI can assist you with:\n` +
       `1️⃣ **"Describe me"** – Summarize your candidate profile, archetype, & strengths.\n` +
       `2️⃣ **"Describe repository [owner/repo]"** – Get production readiness score & CI/CD findings.\n` +
-      `3️⃣ **"Match me against [Job URL / Position text]"** – Evaluate suitability against a position document.`,
+      `3️⃣ **"Match me against [Job URL / Position text]"** – Evaluate suitability against a position document.\n` +
+      `4️⃣ **"Compare CV vs Position"** – Matrix evaluation of skills & working conditions across entities.`,
     intent: 'general'
   };
 }

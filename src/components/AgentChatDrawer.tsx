@@ -175,6 +175,13 @@ export function AgentChatDrawer({ currentUser, currentRepo }: AgentChatDrawerPro
               <Target className="w-3.5 h-3.5 text-amber-400" />
               Match Position Link
             </button>
+            <button
+              onClick={() => handleSendMessage('Compare CV vs Position: Senior AI Systems Architect requiring Python, TypeScript, CI/CD and Remote work')}
+              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-indigo-950 hover:border-indigo-500/50 border border-slate-700/60 text-slate-300 hover:text-indigo-300 transition-all flex items-center gap-1.5 whitespace-nowrap"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+              Compare CV vs Position
+            </button>
           </div>
 
           {/* Messages Area */}

@@ -1,6 +1,7 @@
 export type PlatformType = 
   | 'github'
   | 'google'
+  | 'linkedin'
   | 'youtube'
   | 'reddit'
   | 'flickr'
@@ -162,4 +163,43 @@ export interface CachedAnalysis {
   result: any;
   cachedAt: string;
 }
+
+export type EntityType = 'repo' | 'cv' | 'position' | 'research';
+
+export interface PortfolioEntity {
+  id: string;
+  authorId: string;
+  authorUsername: string;
+  entityType: EntityType;
+  title: string;
+  sourceUrl?: string;
+  contentRaw: string;
+  extractedSkills: {
+    primaryLanguages: string[];
+    frameworksAndTools: string[];
+    domainExpertise: string[];
+    softSkills: string[];
+  };
+  conditions?: {
+    experienceLevel?: string;
+    workMode?: 'remote' | 'hybrid' | 'onsite' | 'flexible';
+    location?: string;
+    keyRequirements?: string[];
+  };
+  updatedAt: string;
+}
+
+export interface CachedEntityComparison {
+  id: string;
+  entityAId: string;
+  entityBId: string;
+  matchScore: number;
+  skillOverlap: string[];
+  skillGaps: string[];
+  conditionMatches: string[];
+  conditionMismatches: string[];
+  detailedRationale: string;
+  cachedAt: string;
+}
+
 

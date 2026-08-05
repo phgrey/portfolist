@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Author, PortfolioItem, Team } from './types';
 import { Header } from './components/Header';
-import { ReferralGateModal } from './components/ReferralGateModal';
+import { OAuthModal } from './components/OAuthModal';
 import { NotebookReaderModal } from './components/NotebookReaderModal';
 import { GDocReaderModal } from './components/GDocReaderModal';
 import { PortfolioCard } from './components/PortfolioCard';
@@ -337,10 +337,9 @@ export default function App() {
       </main>
 
       {/* MODALS */}
-      <ReferralGateModal
+      <OAuthModal
         isOpen={isSignInOpen}
         onClose={() => setIsSignInOpen(false)}
-        initialCode={activeReferralCode || ''}
         onLoginSuccess={(aut) => {
           setCurrentUser(aut);
           fetchData();
