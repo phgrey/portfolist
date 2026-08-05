@@ -9,6 +9,7 @@ import { CliConsole } from './components/CliConsole';
 import { AuthorProfile } from './components/AuthorProfile';
 import { TeamShowcase } from './components/TeamShowcase';
 import { IntegrationsMatrix } from './components/IntegrationsMatrix';
+import { AgentChatDrawer } from './components/AgentChatDrawer';
 import { 
   Sparkles, 
   Search, 
@@ -355,6 +356,9 @@ export default function App() {
         item={selectedGDoc}
         onClose={() => setSelectedGDoc(null)}
       />
+
+      {/* AI Candidate Assistant Chat Drawer for Authorized Users */}
+      <AgentChatDrawer currentUser={currentUser} />
 
     </div>
   );

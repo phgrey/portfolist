@@ -6,6 +6,7 @@ import { warmupCacheFromFirestore, queueDocumentWrite, startPeriodicSync } from 
 import { mongoDb } from './src/services/mongoFirestore';
 import { saveProjectSet, getProjectSets, getProjectSetByName } from './src/services/agentMemory';
 import { analyzeProjectSet } from './agent/skills/authorProfiler';
+import { processAgentMessage } from './src/services/agentEngine';
 import { GoogleGenAI } from '@google/genai';
 
 const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
@@ -578,6 +579,27 @@ app.post('/api/authors/:username/project-sets/:setName/analyze', async (req, res
       durationMs,
       analysis: result
     });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || String(err) });
+  }
+});
+
+// Unified AI Candidate Agent Chat Endpoint
+app.post('/api/chat', async (req, res) => {
+  try {
+    const { message, authorUsername = 'alex_chen', currentRepo } = req.body || {};
+    if (!message || typeof message !== 'string') {
+      return res.status(400).json({ error: 'message string is required' });
+    }
+
+    const response = await processAgentMessage({
+      message,
+      authorUsername,
+      currentRepo,
+      aiClient
+    });
+
+    res.json(response);
   } catch (err: any) {
     res.status(500).json({ error: err.message || String(err) });
   }
