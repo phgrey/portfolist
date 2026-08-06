@@ -1,25 +1,29 @@
 import { MikroORM, EntityManager } from '@mikro-orm/core';
-import { MongoDriver } from '@mikro-orm/mongodb';
 import config from '../../mikro-orm.config';
 
-let ormInstance: MikroORM<MongoDriver> | null = null;
+let ormInstance: MikroORM | null = null;
 
-export async function initMikroOrm(): Promise<MikroORM<MongoDriver>> {
+export async function initMikroOrm(customConfig?: any): Promise<MikroORM> {
   if (!ormInstance) {
-    console.log(`⚡ [MikroORM] Initializing Data Access Layer with MongoDB driver & IdentityMap L1 caching...`);
-    ormInstance = await MikroORM.init<MongoDriver>(config);
+    const finalConfig = customConfig || config;
+    console.log(`⚡ [MikroORM] Initializing Data Access Layer...`);
+    ormInstance = await MikroORM.init(finalConfig);
   }
 
   return ormInstance;
 }
 
-export function getOrm(): MikroORM<MongoDriver> {
+export function setOrmInstance(instance: MikroORM | null): void {
+  ormInstance = instance;
+}
+
+export function getOrm(): MikroORM {
   if (!ormInstance) {
     throw new Error('MikroORM not initialized. Call initMikroOrm() first.');
   }
   return ormInstance;
 }
 
-export function getForkedEm(): EntityManager<MongoDriver> {
+export function getForkedEm(): EntityManager {
   return getOrm().em.fork();
 }

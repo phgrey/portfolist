@@ -18,37 +18,52 @@ export async function findAuthorByUsernameOrEmail(username?: string, email?: str
 
   try {
     const em = getForkedEm();
-    const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const queryFilters: any[] = [];
+    const isMongo = em.getDriver()?.constructor?.name?.includes('Mongo') ?? false;
 
-    if (safeUser) {
-      queryFilters.push({ username: new RegExp(`^${escapeRegex(safeUser)}$`, 'i') });
-    }
+    if (isMongo) {
+      const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const ciFilter = (val: string) => new RegExp(`^${escapeRegex(val)}$`, 'i');
+      const queryFilters: any[] = [];
 
-    if (safeEmail) {
-      queryFilters.push({
-        contactMethods: {
-          $elemMatch: {
-            platform: 'email',
-            value: new RegExp(`^${escapeRegex(safeEmail)}$`, 'i')
+      if (safeUser) {
+        queryFilters.push({ username: ciFilter(safeUser) });
+      }
+
+      if (safeEmail) {
+        queryFilters.push({
+          contactMethods: {
+            $elemMatch: {
+              platform: 'email',
+              value: ciFilter(safeEmail)
+            }
           }
-        }
-      });
-      queryFilters.push({
-        integrations: {
-          $elemMatch: {
-            'metadata.email': new RegExp(`^${escapeRegex(safeEmail)}$`, 'i')
+        });
+        queryFilters.push({
+          integrations: {
+            $elemMatch: {
+              'metadata.email': ciFilter(safeEmail)
+            }
           }
+        });
+      }
+
+      const author = await em.findOne(authorSchema, { $or: queryFilters });
+      if (author) return author as Author;
+    } else {
+      // SQL / SQLite Driver
+      const authors = await em.find(authorSchema, {});
+      const matched = authors.find(a => {
+        if (safeUser && a.username.toLowerCase() === safeUser) return true;
+        if (safeEmail) {
+          const hasEmailInContact = a.contactMethods?.some(c => c.value?.toLowerCase() === safeEmail);
+          if (hasEmailInContact) return true;
+          const hasEmailInIntegration = a.integrations?.some(i => i.metadata?.email?.toLowerCase() === safeEmail);
+          if (hasEmailInIntegration) return true;
         }
+        return false;
       });
-    }
 
-    const author = await em.findOne(authorSchema, {
-      $or: queryFilters
-    });
-
-    if (author) {
-      return author as Author;
+      if (matched) return matched as Author;
     }
   } catch (err) {
     console.warn('ℹ️ [MikroORM] em.findOne query info:', err);

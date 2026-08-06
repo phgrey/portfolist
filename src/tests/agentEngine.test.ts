@@ -1,56 +1,36 @@
+import { describe, it, expect } from 'vitest';
 import { processAgentMessage } from '../services/agentEngine';
 
-async function runAgentEngineTests() {
-  console.log('🧪 Running Agent Engine Test Suite...\n');
-
-  // Test 1: Describe Me intent
-  const res1 = await processAgentMessage({
-    message: 'describe me',
-    authorUsername: 'alex_chen'
+describe('AgentEngine Intent Classification & Skill Routing', () => {
+  it('should correctly classify "describe_me" intent', async () => {
+    const res = await processAgentMessage({
+      message: 'describe me',
+      authorUsername: 'alex_chen'
+    });
+    expect(res.intent).toBe('describe_me');
   });
-  if (res1.intent !== 'describe_me') {
-    throw new Error(`Expected intent "describe_me", got "${res1.intent}"`);
-  }
-  console.log('✅ Test 1 Passed: Intent "describe_me" correctly classified.');
 
-  // Test 2: Describe Repo intent
-  const res2 = await processAgentMessage({
-    message: 'describe repo phgrey/grafin',
-    authorUsername: 'alex_chen'
+  it('should correctly classify "describe_repo" intent', async () => {
+    const res = await processAgentMessage({
+      message: 'describe repo phgrey/grafin',
+      authorUsername: 'alex_chen'
+    });
+    expect(res.intent).toBe('describe_repo');
   });
-  if (res2.intent !== 'describe_repo') {
-    throw new Error(`Expected intent "describe_repo", got "${res2.intent}"`);
-  }
-  console.log('✅ Test 2 Passed: Intent "describe_repo" correctly classified.');
 
-  // Test 3: Match Position intent
-  const res3 = await processAgentMessage({
-    message: 'match me against position: Senior AI Engineer',
-    authorUsername: 'alex_chen'
+  it('should correctly classify "match_position" intent', async () => {
+    const res = await processAgentMessage({
+      message: 'match me against position: Senior AI Engineer',
+      authorUsername: 'alex_chen'
+    });
+    expect(res.intent).toBe('match_position');
   });
-  if (res3.intent !== 'match_position') {
-    throw new Error(`Expected intent "match_position", got "${res3.intent}"`);
-  }
-  console.log('✅ Test 3 Passed: Intent "match_position" correctly classified.');
 
-  // Test 4: Cross-Entity Comparer intent
-  const res4 = await processAgentMessage({
-    message: 'Compare CV vs Position: Senior AI Systems Engineer',
-    authorUsername: 'alex_chen'
+  it('should correctly classify "compare_entities" intent', async () => {
+    const res = await processAgentMessage({
+      message: 'Compare CV vs Position: Senior AI Systems Engineer',
+      authorUsername: 'alex_chen'
+    });
+    expect(res.intent).toBe('compare_entities');
   });
-  if (res4.intent !== 'compare_entities') {
-    throw new Error(`Expected intent "compare_entities", got "${res4.intent}"`);
-  }
-  console.log('✅ Test 4 Passed: Intent "compare_entities" correctly classified.');
-
-  console.log('\n🎉 ALL AGENT ENGINE TESTS PASSED SUCCESSFULLY!');
-}
-
-if (process.argv[1]?.includes('agentEngine.test.ts')) {
-  runAgentEngineTests().catch(err => {
-    console.error('❌ Test Failure:', err);
-    process.exit(1);
-  });
-}
-
-export { runAgentEngineTests };
+});
