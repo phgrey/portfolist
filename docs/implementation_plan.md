@@ -1,57 +1,93 @@
-# Implementation Plan - Direct Native GitHub OAuth 2.0 (No Firebase Dependency)
+# Implementation Plan - GitHub Actions CI/CD Pipelines & Database Migration System
 
-Replace client-side Firebase Auth with **Direct Native GitHub OAuth 2.0**. Gives 100% control over the `redirect_uri`, removes all Firebase SDK setup errors, and works seamlessly with local and production server callback URLs.
+Build two production-grade **GitHub Actions Workflows** and a **Database Migration Engine** for Cloud Firestore / MongoDB schema management:
+
+1. **Firebase Deployment Pipeline (`.github/workflows/deploy-firebase.yml`)**: Triggered on push to `firebase` branch. Deploys web hosting and functions.
+2. **CI/CD Quality Pipeline (`.github/workflows/ci.yml`)**: Triggered on push to `feature/*` branches and Pull Requests. Executes linting, type checking, unit tests, code coverage, and static analysis.
+3. **Database Migration Engine (`src/db/migrate.ts`)**: Version-controlled migration system tracking schema migrations (`001_initial_collections.ts`, `002_author_integrations_indexes.ts`) with `npm run db:migrate`.
 
 ---
 
-## 1. Direct Native OAuth 2.0 Flow
-
-* **Zero Firebase Auth Dependencies**: No `auth/api-key-not-valid`, `operation-not-allowed`, or Firebase domain restrictions.
-* **Full Control of `redirect_uri`**: Set callback URL directly to `http://localhost:3000/api/auth/github/callback` (or production domain).
-* **Direct Access Token Handling**: Server gets the GitHub Access Token directly and stores it in the user's `integrations` matrix for Layer 1 Data Providers (`GitHubAppProvider.ts`).
+## 1. Pipeline & Migration Architecture
 
 ```mermaid
 flowchart TD
-    User["User on Web App"] -->|1. Click 'Sign in with GitHub'| FrontOAuth["Direct OAuth Authorization\n(github.com/login/oauth/authorize)"]
-    
-    FrontOAuth -->|2. User approves| GitHubServer["GitHub OAuth Server"]
-    
-    GitHubServer -->|3. Redirect with code| ServerCallback["Express Backend Endpoint\n(GET /api/auth/github/callback)"]
-    
-    ServerCallback -->|4. Exchange code for Access Token| GitHubTokenEP["POST github.com/login/oauth/access_token"]
-    GitHubTokenEP -->|5. Fetch User Profile| GitHubUserEP["GET api.github.com/user"]
-    
-    GitHubUserEP -->|6. Upsert Author & Save Token| DB[("Database & 2-Tier Memory\n(authors collection)")]
-    DB -->|7. Redirect back to App| WebApp["Portfolio Web App\n(Logged in as Verified Author!)"]
+    subgraph GitHubFlow["GitHub Actions Workflows"]
+        FeaturePush["Push to feature/* or PR"] -->|Triggers| CIWorkflow[".github/workflows/ci.yml\n(Lint, Typecheck, Tests, Coverage)"]
+        FirebasePush["Push to firebase branch"] -->|Triggers| CDWorkflow[".github/workflows/deploy-firebase.yml\n(Build & Firebase Deploy)"]
+    end
+
+    subgraph DBMigrations["Database Migration System"]
+        MigrateCli["npm run db:migrate\n(src/db/migrate.ts)"] --> MigrationRunner["Migration Runner"]
+        MigrationRunner -->|Executes Pending| MigrationsDir["src/db/migrations/*"]
+        MigrationsDir -->|Updates Schema Version| Firestore[("Cloud Firestore\n(schema_migrations)")]
+    end
+
+    CDWorkflow -->|Deploy Command| FirebaseHost["Firebase Hosting & Functions"]
 ```
 
 ---
 
 ## Proposed Changes
 
-### Backend & Direct OAuth Routes
+### Database Migration System
 
-#### [MODIFY] [server.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/server.ts)
-- Add direct OAuth authorization and callback endpoints:
-  - `GET /api/auth/github/login`: Redirects browser to `https://github.com/login/oauth/authorize?client_id=...&scope=read:user,repo`.
-  - `GET /api/auth/github/callback`: Receives `code`, exchanges for `access_token`, fetches `api.github.com/user`, creates/upserts author, and redirects user back to `/?login=success&user=${username}`.
+#### [NEW] [src/db/migrate.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/db/migrate.ts)
+- Migration Runner CLI script:
+  - Tracks executed migrations in `schema_migrations` collection in Firestore.
+  - Sequentially applies pending migration files (`001_...`, `002_...`).
+  - Supports `--rollback` and `--status`.
+
+#### [NEW] [src/db/migrations/001_initial_schema.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/db/migrations/001_initial_schema.ts)
+- Initial migration establishing core collections (`authors`, `portfolio_entities`, `cached_analyses`, `cached_comparisons`, `author_project_sets`).
+
+#### [NEW] [src/db/migrations/002_add_integrations_indexes.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/db/migrations/002_add_integrations_indexes.ts)
+- Indexing & schema migration adding multi-provider integration metadata structure to author documents.
 
 ---
 
-### Frontend UI Updates
+### Tests & Quality Assurance Setup
 
-#### [MODIFY] [src/services/authProviders.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/services/authProviders.ts)
-- Update `loginWithOAuthProvider` to use direct native server redirect (`window.location.href = '/api/auth/github/login'`).
+#### [NEW] [src/tests/agentEngine.test.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/tests/agentEngine.test.ts)
+- Test suite verifying intent classification (`describe_me`, `describe_repo`, `match_position`, `compare_entities`) and dialogue responses.
 
-#### [MODIFY] [src/components/OAuthModal.tsx](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/components/OAuthModal.tsx)
-- Connect GitHub button directly to `/api/auth/github/login`.
+#### [NEW] [src/tests/entityMemory.test.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/tests/entityMemory.test.ts)
+- Test suite verifying 2-tier memory L1 process cache hits (`<1ms`) and L2 Firestore persistence.
+
+#### [MODIFY] [package.json](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/package.json)
+- Add scripts: `test`, `test:coverage`, `lint`, `db:migrate`, `db:migrate:status`.
+- Add `vitest` / `@vitest/coverage-v8` or test runner dependencies.
+
+---
+
+### GitHub Actions Workflows & Firebase Config
+
+#### [NEW] [.github/workflows/ci.yml](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/.github/workflows/ci.yml)
+- GitHub Actions CI workflow triggered on `push` to `feature/*` and `pull_request` to `main`/`firebase`:
+  1. Setup Node.js 20 & cache npm packages.
+  2. Run `npm run lint` (Static code analysis).
+  3. Run `npx tsc --noEmit` (TypeScript type check).
+  4. Run `npm run build` (Vite & server build validation).
+  5. Run `npm run test:coverage` (Unit tests & coverage report).
+  6. Run `npm run db:migrate:status` (Dry-run migration validation).
+
+#### [NEW] [.github/workflows/deploy-firebase.yml](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/.github/workflows/deploy-firebase.yml)
+- GitHub Actions CD workflow triggered on `push` to `firebase` branch:
+  1. Build frontend & backend artifacts (`npm run build`).
+  2. Run database migrations (`npm run db:migrate`).
+  3. Deploy to Firebase Hosting & Functions (`FirebaseExtended/action-hosting-deploy` or `w9jds/firebase-action`).
+
+#### [NEW] [firebase.json](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/firebase.json) & [.firebaserc](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/.firebaserc)
+- Configures Firebase Hosting target serving `dist/` and rewrites to Cloud Functions / Express backend.
 
 ---
 
 ## Verification Plan
 
 ### Automated Verification
-1. **Direct OAuth Callback Endpoint**:
-   - Access `GET /api/auth/github/login` -> Confirm redirect to GitHub authorization URL with proper `client_id` & `redirect_uri`.
-2. **Type Check & Build**:
-   - Run `npx tsc --noEmit` and `npm run build`.
+1. **CI Pipeline Validation**:
+   - Run `npm run lint` -> Confirm 0 lint errors.
+   - Run `npm run test:coverage` -> Confirm unit tests pass with coverage report.
+   - Run `npm run db:migrate` -> Confirm database migrations execute cleanly.
+2. **GitHub Actions Syntax Validation**:
+   - Validate `.github/workflows/ci.yml` and `.github/workflows/deploy-firebase.yml` YAML syntax.

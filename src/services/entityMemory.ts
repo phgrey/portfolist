@@ -77,8 +77,9 @@ export async function getPortfolioEntitiesByAuthor(authorIdOrUsername: string): 
 /**
  * Retrieve cached entity comparison matrix (L1 RAM -> L2 Firestore)
  */
-export async function getCachedComparison(comparisonKey: string): Promise<CachedEntityComparison | null> {
+export async function getCachedComparison(keyOrIdA: string, idB?: string): Promise<CachedEntityComparison | null> {
   const startTime = Date.now();
+  const comparisonKey = idB ? generateComparisonKey(keyOrIdA, idB) : keyOrIdA;
 
   // 1. Check L1 RAM Cache (<1ms)
   if (l1ComparisonsMap.has(comparisonKey)) {

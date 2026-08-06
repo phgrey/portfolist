@@ -9,7 +9,12 @@
     "build": "npx vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist server.cjs",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "npx tsx src/tests/agentEngine.test.ts && npx tsx src/tests/entityMemory.test.ts",
+    "test:coverage": "npx tsx src/tests/agentEngine.test.ts && npx tsx src/tests/entityMemory.test.ts",
+    "db:migrate": "npx tsx src/db/migrate.ts",
+    "db:migrate:status": "npx tsx src/db/migrate.ts --status",
+    "db:migrate:rollback": "npx tsx src/db/migrate.ts --rollback"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
