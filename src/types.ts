@@ -9,7 +9,9 @@ export type PlatformType =
   | 'metamask'
   | 'apple'
   | 'microsoft'
-  | 'discord';
+  | 'discord'
+  | 'gemini'
+  | 'gdoc';
 
 export interface IntegrationRecord {
   provider: PlatformType;
@@ -23,6 +25,8 @@ export interface IntegrationRecord {
     [key: string]: any;
   };
 }
+
+export type AuthorIntegration = IntegrationRecord;
 
 export interface ContactMethod {
   platform: 'discord' | 'whatsapp' | 'telegram' | 'email' | 'x';
@@ -54,19 +58,21 @@ export interface ReferralToken {
   createdAt: string;
 }
 
+export interface TeamMember {
+  authorId: string;
+  username: string;
+  displayName: string;
+  avatarUrl: string;
+  role: 'owner' | 'member';
+}
+
 export interface Team {
   id: string;
   name: string;
   slug: string;
   descriptionMarkdown: string;
   avatarUrl?: string;
-  members: {
-    authorId: string;
-    username: string;
-    displayName: string;
-    avatarUrl: string;
-    role: 'owner' | 'member';
-  }[];
+  members: TeamMember[];
   createdAt: string;
 }
 

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Author, PortfolioItem, Team } from './types';
 import { Header } from './components/Header';
-import { OAuthModal } from './components/OAuthModal';
 import { NotebookReaderModal } from './components/NotebookReaderModal';
 import { GDocReaderModal } from './components/GDocReaderModal';
 import { PortfolioCard } from './components/PortfolioCard';
@@ -10,6 +9,8 @@ import { AuthorProfile } from './components/AuthorProfile';
 import { TeamShowcase } from './components/TeamShowcase';
 import { IntegrationsMatrix } from './components/IntegrationsMatrix';
 import { AgentChatDrawer } from './components/AgentChatDrawer';
+import { SignupPage } from './components/SignupPage';
+import { ConnectionAdded } from './components/ConnectionAdded';
 import { 
   Sparkles, 
   Search, 
@@ -36,8 +37,9 @@ export default function App() {
   const [portfolioItems, setPortfolioItems] = useState<PortfolioItem[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   
-  const [activeTab, setActiveTab] = useState<'feed' | 'teams' | 'referrals' | 'cli' | 'matrix' | 'author_view'>('feed');
+  const [activeTab, setActiveTab] = useState<'feed' | 'teams' | 'referrals' | 'cli' | 'matrix' | 'author_view' | 'signup' | 'connection-added'>('feed');
   const [selectedAuthorUsername, setSelectedAuthorUsername] = useState<string | null>(null);
+  const [connectionDetails, setConnectionDetails] = useState<{ provider: any; username: string; isNewUser: boolean } | null>(null);
 
   // Filters
   const [platformFilter, setPlatformFilter] = useState<string>('all');
@@ -54,19 +56,40 @@ export default function App() {
   // Check URL parameters on mount
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
+    const viewParam = urlParams.get('view') || (window.location.pathname.includes('/signup') ? 'signup' : window.location.pathname.includes('/connection-added') ? 'connection-added' : null);
     const loginStatus = urlParams.get('login');
     const loggedUser = urlParams.get('user');
+    const providerParam = urlParams.get('provider') || 'github';
+    const isNewUser = urlParams.get('is_new') === 'true';
     const refCode = urlParams.get('ref') || urlParams.get('invite');
 
-    if (refCode) {
+    if (viewParam === 'signup' || window.location.pathname === '/signup') {
+      setActiveTab('signup');
+    } else if (viewParam === 'connection-added' || window.location.pathname === '/connection-added') {
+      setActiveTab('connection-added');
+      if (loggedUser) {
+        setConnectionDetails({ provider: providerParam as any, username: loggedUser, isNewUser });
+        fetch(`/api/authors/${loggedUser}`)
+          .then(res => res.json())
+          .then(data => {
+            const author = data.author || data;
+            if (author && author.username) {
+              setCurrentUser(author);
+              localStorage.setItem('portfolist:user_session', author.username);
+            }
+          })
+          .catch(err => console.error('Error fetching logged in user:', err));
+      }
+    } else if (refCode) {
       setActiveReferralCode(refCode.toUpperCase());
-      setIsSignInOpen(true);
     } else if (loginStatus === 'success' && loggedUser) {
       fetch(`/api/authors/${loggedUser}`)
         .then(res => res.json())
-        .then(author => {
+        .then(data => {
+          const author = data.author || data;
           if (author && author.username) {
             setCurrentUser(author);
+            localStorage.setItem('portfolist:user_session', author.username);
           }
         })
         .catch(err => console.error('Error fetching logged in user:', err));
@@ -85,7 +108,7 @@ export default function App() {
         fetch('/api/teams')
       ]);
 
-      const authorsData = await authorsRes.json();
+      const authorsData: Author[] = await authorsRes.json();
       const itemsData = await itemsRes.json();
       const teamsData = await teamsRes.json();
 
@@ -93,9 +116,13 @@ export default function App() {
       setPortfolioItems(itemsData);
       setTeams(teamsData);
 
-      // Default current user to Alex Chen if not set
-      if (!currentUser && authorsData.length > 0) {
-        setCurrentUser(authorsData[0]);
+      // Check saved localStorage session
+      const savedUser = localStorage.getItem('portfolist:user_session');
+      if (savedUser) {
+        const found = authorsData.find(a => a.username.toLowerCase() === savedUser.toLowerCase());
+        if (found) {
+          setCurrentUser(found);
+        }
       }
     } catch (err) {
       console.error('Error fetching system data:', err);
@@ -111,6 +138,7 @@ export default function App() {
     const target = allAuthors.find(a => a.username.toLowerCase() === username.toLowerCase());
     if (target) {
       setCurrentUser(target);
+      localStorage.setItem('portfolist:user_session', target.username);
     }
   };
 
@@ -145,22 +173,55 @@ export default function App() {
       {/* Header Bar */}
       <Header
         currentUser={currentUser}
-        activeTab={activeTab === 'author_view' ? 'feed' : activeTab}
+        activeTab={['author_view', 'signup', 'connection-added'].includes(activeTab) ? 'feed' : activeTab as any}
         setActiveTab={(tab) => {
           setActiveTab(tab);
           setSelectedAuthorUsername(null);
         }}
         allAuthors={allAuthors}
         onSwitchUser={handleSwitchUser}
-        onOpenSignIn={() => setIsSignInOpen(true)}
+        onOpenSignIn={() => {
+          window.location.href = '/api/auth/github/login';
+        }}
         activeReferralCode={activeReferralCode}
-        onLogout={() => setCurrentUser(null)}
+        onLogout={() => {
+          setCurrentUser(null);
+          localStorage.removeItem('portfolist:user_session');
+        }}
+        onConnectProvider={(prov) => {
+          window.location.href = '/api/auth/github/login';
+        }}
       />
 
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
-        
-        {/* VIEW 1: Collective Portfolio Feed */}
+
+        {/* VIEW: Standalone OAuth Signup Page */}
+        {activeTab === 'signup' && (
+          <SignupPage
+            onSelectProvider={(prov) => {
+              window.location.href = '/api/auth/github/login';
+            }}
+          />
+        )}
+
+        {/* VIEW: Connection Added Confirmation Page */}
+        {activeTab === 'connection-added' && (
+          <ConnectionAdded
+            currentUser={currentUser}
+            provider={connectionDetails?.provider || 'github'}
+            username={connectionDetails?.username || currentUser?.username || 'alex_chen'}
+            isNewUser={connectionDetails?.isNewUser || false}
+            onReturnHome={() => {
+              setActiveTab('feed');
+              window.history.replaceState({}, document.title, '/');
+            }}
+            onOpenAgentChat={() => {
+              setActiveTab('feed');
+              window.history.replaceState({}, document.title, '/');
+            }}
+          />
+        )}
         {activeTab === 'feed' && (
           <div className="space-y-6 animate-fadeIn">
             
@@ -351,15 +412,6 @@ export default function App() {
       </main>
 
       {/* MODALS */}
-      <OAuthModal
-        isOpen={isSignInOpen}
-        onClose={() => setIsSignInOpen(false)}
-        referralCode={activeReferralCode}
-        onLoginSuccess={(aut) => {
-          setCurrentUser(aut);
-          fetchData();
-        }}
-      />
 
       <NotebookReaderModal
         item={selectedNotebook}

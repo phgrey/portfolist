@@ -33,8 +33,5 @@ jobs:
       - name: 2. Production Build Validation
         run: npm run build
 
-      - name: 3. Database Migration Status Dry-Run
-        run: npm run db:migrate:status
-
-      - name: 4. Execute Unit Tests & Code Coverage
+      - name: 3. Execute Unit Tests & Code Coverage
         run: npm run test:coverage

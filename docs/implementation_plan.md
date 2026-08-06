@@ -1,93 +1,97 @@
-# Implementation Plan - GitHub Actions CI/CD Pipelines & Database Migration System
+# Implementation Plan - MikroORM Data Layer & Migration System
 
-Build two production-grade **GitHub Actions Workflows** and a **Database Migration Engine** for Cloud Firestore / MongoDB schema management:
+Integrate **MikroORM** as the official Data Access Layer (DAL) for the application, featuring built-in **Identity Map L1 caching**, **MongoDB driver (L2 database)** connection to Firestore/Mongo, and **MikroORM Migrations**:
 
-1. **Firebase Deployment Pipeline (`.github/workflows/deploy-firebase.yml`)**: Triggered on push to `firebase` branch. Deploys web hosting and functions.
-2. **CI/CD Quality Pipeline (`.github/workflows/ci.yml`)**: Triggered on push to `feature/*` branches and Pull Requests. Executes linting, type checking, unit tests, code coverage, and static analysis.
-3. **Database Migration Engine (`src/db/migrate.ts`)**: Version-controlled migration system tracking schema migrations (`001_initial_collections.ts`, `002_author_integrations_indexes.ts`) with `npm run db:migrate`.
+1. **MikroORM Architecture & L1/L2 Caching**:
+   - **Identity Map (L1 Cache)**: MikroORM's `UnitOfWork` and `Identity Map` keep active entity instances in memory for `<1ms` lookup speed.
+   - **MongoDB Driver (L2 Storage)**: Uses `@mikro-orm/mongodb` connecting to `DB_URL` (Cloud Firestore MongoDB wire endpoint).
+   - **MikroORM Migrations (`@mikro-orm/migrations`)**: Automated schema and index migration engine replacing custom migration runners.
+
+2. **Entity Models (`src/entities/`)**:
+   - `AuthorEntity.ts`: `@Entity()`, `@PrimaryKey()`, `@Property({ type: 'json' })` for integrations & contactMethods.
+   - `PortfolioItemEntity.ts`: `@Entity()`, `@PrimaryKey()`, `@Property()`.
+   - `TeamEntity.ts`: `@Entity()`, `@PrimaryKey()`, `@Property({ type: 'json' })` for members.
+   - `ReferralTokenEntity.ts`: `@Entity()`, `@PrimaryKey()`, `@Property()`.
+   - `PortfolioMemoryEntity.ts` & `ComparisonMatrixEntity.ts`: For agent 2-tier memory & cross-entity comparison matrix caching.
 
 ---
 
-## 1. Pipeline & Migration Architecture
+## 1. MikroORM Data Architecture
 
 ```mermaid
 flowchart TD
-    subgraph GitHubFlow["GitHub Actions Workflows"]
-        FeaturePush["Push to feature/* or PR"] -->|Triggers| CIWorkflow[".github/workflows/ci.yml\n(Lint, Typecheck, Tests, Coverage)"]
-        FirebasePush["Push to firebase branch"] -->|Triggers| CDWorkflow[".github/workflows/deploy-firebase.yml\n(Build & Firebase Deploy)"]
-    end
-
-    subgraph DBMigrations["Database Migration System"]
-        MigrateCli["npm run db:migrate\n(src/db/migrate.ts)"] --> MigrationRunner["Migration Runner"]
-        MigrationRunner -->|Executes Pending| MigrationsDir["src/db/migrations/*"]
-        MigrationsDir -->|Updates Schema Version| Firestore[("Cloud Firestore\n(schema_migrations)")]
-    end
-
-    CDWorkflow -->|Deploy Command| FirebaseHost["Firebase Hosting & Functions"]
+    ExpressApp["Express API & Agent Engine"] -->|RequestContext.create| MikroORM["MikroORM Data Layer\n(mikro-orm.config.ts)"]
+    
+    MikroORM -->|L1 Cache Hit (<1ms)| IdentityMap["Identity Map / UnitOfWork\n(In-Memory Entity Registry)"]
+    
+    MikroORM -->|L2 Database Read/Write| MongoDriver["@mikro-orm/mongodb Driver"]
+    
+    MongoDriver -->|DB_URL Connection| CloudStore[("Cloud Firestore / Mongo Endpoint\n(authors, portfolio_items, teams, migrations)")]
+    
+    MikroORM -->|npm run db:migrate| MigratorEngine["MikroORM Migrator\n(src/migrations/*)"]
 ```
 
 ---
 
 ## Proposed Changes
 
-### Database Migration System
-
-#### [NEW] [src/db/migrate.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/db/migrate.ts)
-- Migration Runner CLI script:
-  - Tracks executed migrations in `schema_migrations` collection in Firestore.
-  - Sequentially applies pending migration files (`001_...`, `002_...`).
-  - Supports `--rollback` and `--status`.
-
-#### [NEW] [src/db/migrations/001_initial_schema.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/db/migrations/001_initial_schema.ts)
-- Initial migration establishing core collections (`authors`, `portfolio_entities`, `cached_analyses`, `cached_comparisons`, `author_project_sets`).
-
-#### [NEW] [src/db/migrations/002_add_integrations_indexes.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/db/migrations/002_add_integrations_indexes.ts)
-- Indexing & schema migration adding multi-provider integration metadata structure to author documents.
-
----
-
-### Tests & Quality Assurance Setup
-
-#### [NEW] [src/tests/agentEngine.test.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/tests/agentEngine.test.ts)
-- Test suite verifying intent classification (`describe_me`, `describe_repo`, `match_position`, `compare_entities`) and dialogue responses.
-
-#### [NEW] [src/tests/entityMemory.test.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/tests/entityMemory.test.ts)
-- Test suite verifying 2-tier memory L1 process cache hits (`<1ms`) and L2 Firestore persistence.
+### Dependencies & Configuration
 
 #### [MODIFY] [package.json](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/package.json)
-- Add scripts: `test`, `test:coverage`, `lint`, `db:migrate`, `db:migrate:status`.
-- Add `vitest` / `@vitest/coverage-v8` or test runner dependencies.
+- Add `@mikro-orm/core`, `@mikro-orm/mongodb`, `@mikro-orm/migrations`, `@mikro-orm/reflection`.
+- Add scripts: `db:migrate`, `db:migrate:create`, `db:migrate:status`.
+
+#### [NEW] [mikro-orm.config.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/mikro-orm.config.ts)
+- MikroORM configuration file setting up `MongoDriver`, `clientUrl: process.env.DB_URL`, `dbName: 'portfolist'`, and migration path `src/migrations`.
 
 ---
 
-### GitHub Actions Workflows & Firebase Config
+### Entity Models
 
-#### [NEW] [.github/workflows/ci.yml](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/.github/workflows/ci.yml)
-- GitHub Actions CI workflow triggered on `push` to `feature/*` and `pull_request` to `main`/`firebase`:
-  1. Setup Node.js 20 & cache npm packages.
-  2. Run `npm run lint` (Static code analysis).
-  3. Run `npx tsc --noEmit` (TypeScript type check).
-  4. Run `npm run build` (Vite & server build validation).
-  5. Run `npm run test:coverage` (Unit tests & coverage report).
-  6. Run `npm run db:migrate:status` (Dry-run migration validation).
+#### [NEW] [src/entities/AuthorEntity.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/entities/AuthorEntity.ts)
+- MikroORM Entity definition for Author.
 
-#### [NEW] [.github/workflows/deploy-firebase.yml](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/.github/workflows/deploy-firebase.yml)
-- GitHub Actions CD workflow triggered on `push` to `firebase` branch:
-  1. Build frontend & backend artifacts (`npm run build`).
-  2. Run database migrations (`npm run db:migrate`).
-  3. Deploy to Firebase Hosting & Functions (`FirebaseExtended/action-hosting-deploy` or `w9jds/firebase-action`).
+#### [NEW] [src/entities/PortfolioItemEntity.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/entities/PortfolioItemEntity.ts)
+- MikroORM Entity definition for Portfolio Item.
 
-#### [NEW] [firebase.json](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/firebase.json) & [.firebaserc](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/.firebaserc)
-- Configures Firebase Hosting target serving `dist/` and rewrites to Cloud Functions / Express backend.
+#### [NEW] [src/entities/TeamEntity.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/entities/TeamEntity.ts)
+- MikroORM Entity definition for Team.
+
+#### [NEW] [src/entities/ReferralTokenEntity.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/entities/ReferralTokenEntity.ts)
+- MikroORM Entity definition for Referral Token.
+
+#### [NEW] [src/entities/PortfolioMemoryEntity.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/entities/PortfolioMemoryEntity.ts)
+- MikroORM Entity definition for Agent Portfolio Memory.
+
+#### [NEW] [src/entities/ComparisonMatrixEntity.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/entities/ComparisonMatrixEntity.ts)
+- MikroORM Entity definition for Cross-Entity Comparison Matrix.
+
+---
+
+### Database Services & Migrations
+
+#### [NEW] [src/services/mikroDb.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/services/mikroDb.ts)
+- Initializes MikroORM ORM instance, exports `getOrm()`, `getForkedEm()`, and seed population wrapper.
+
+#### [MODIFY] [src/db/migrate.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/db/migrate.ts)
+- Refactors migration runner to delegate to `orm.getMigrator().up()` and `orm.getMigrator().getExecutedMigrations()`.
+
+#### [NEW] [src/migrations/Migration20260806120000_InitialSchema.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/src/migrations/Migration20260806120000_InitialSchema.ts)
+- Initial MikroORM migration class establishing collection indexes.
+
+#### [MODIFY] [server.ts](file:///Users/ssemenov/Documents/antigravity/portfolist.node.srv/server.ts)
+- Register `RequestContext.create(orm.em, ...)` middleware.
+- Connect API routes to MikroORM Entity Manager repositories.
 
 ---
 
 ## Verification Plan
 
 ### Automated Verification
-1. **CI Pipeline Validation**:
-   - Run `npm run lint` -> Confirm 0 lint errors.
-   - Run `npm run test:coverage` -> Confirm unit tests pass with coverage report.
-   - Run `npm run db:migrate` -> Confirm database migrations execute cleanly.
-2. **GitHub Actions Syntax Validation**:
-   - Validate `.github/workflows/ci.yml` and `.github/workflows/deploy-firebase.yml` YAML syntax.
+1. **MikroORM Migrations Test**:
+   - Run `npm run db:migrate:status` -> Verify MikroORM migrator detects migration files.
+   - Run `npm run db:migrate` -> Verify migration execution.
+2. **Type Check & Build**:
+   - Run `npx tsc --noEmit` and `npm run build`.
+3. **Automated Unit Tests**:
+   - Run `npm run test` -> Verify Agent Engine and Entity Memory test suites pass with MikroORM DAL.

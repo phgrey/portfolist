@@ -12,12 +12,15 @@
     "lint": "tsc --noEmit",
     "test": "npx tsx src/tests/agentEngine.test.ts && npx tsx src/tests/entityMemory.test.ts",
     "test:coverage": "npx tsx src/tests/agentEngine.test.ts && npx tsx src/tests/entityMemory.test.ts",
-    "db:migrate": "npx tsx src/db/migrate.ts",
-    "db:migrate:status": "npx tsx src/db/migrate.ts --status",
-    "db:migrate:rollback": "npx tsx src/db/migrate.ts --rollback"
+    "db:seed": "mikro-orm seeder:run"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
+    "@mikro-orm/core": "^7.1.11",
+    "@mikro-orm/migrations-mongodb": "^7.1.11",
+    "@mikro-orm/mongodb": "^7.1.11",
+    "@mikro-orm/reflection": "^7.1.11",
+    "@mikro-orm/seeder": "^7.1.11",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
     "dotenv": "^17.2.3",
@@ -33,6 +36,7 @@
     "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
+    "@mikro-orm/cli": "^7.1.11",
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
     "autoprefixer": "^10.4.21",

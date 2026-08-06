@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Author } from '../types';
+import { Author, PlatformType } from '../types';
 import { 
   Layers, 
   Terminal, 
@@ -13,7 +13,10 @@ import {
   CheckCircle2, 
   Grid2X2,
   PlusCircle,
-  ShieldAlert
+  ShieldAlert,
+  Github,
+  Globe,
+  Plus
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -25,6 +28,7 @@ interface HeaderProps {
   onOpenSignIn: () => void;
   activeReferralCode: string | null;
   onLogout: () => void;
+  onConnectProvider?: (provider: PlatformType) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -35,9 +39,34 @@ export const Header: React.FC<HeaderProps> = ({
   onSwitchUser,
   onOpenSignIn,
   activeReferralCode,
-  onLogout
+  onLogout,
+  onConnectProvider
 }) => {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+
+  // Connection Provider Badges Definition
+  const providerList: { id: PlatformType; name: string; icon: React.ReactNode }[] = [
+    {
+      id: 'github',
+      name: 'GitHub',
+      icon: <Github className="w-3.5 h-3.5" />
+    },
+    {
+      id: 'google',
+      name: 'Google Docs',
+      icon: <Globe className="w-3.5 h-3.5 text-red-400" />
+    },
+    {
+      id: 'linkedin',
+      name: 'LinkedIn',
+      icon: <span className="font-bold text-[10px] text-blue-400 font-sans">in</span>
+    }
+  ];
+
+  const isConnected = (pId: PlatformType): boolean => {
+    if (!currentUser || !currentUser.integrations) return false;
+    return currentUser.integrations.some(i => i.provider === pId);
+  };
 
   return (
     <header className="sticky top-0 z-40 bg-[#0F172A] border-b border-slate-800 text-slate-100 shadow-sm">
@@ -138,8 +167,33 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           )}
 
-          {/* User Logged In vs Sign In */}
-          {currentUser ? (
+          {/* Connection Provider Square Logos (Connected in Color, Not Connected/Logged-Out in Grayscale) */}
+          <div className="flex items-center gap-1.5 p-1 bg-slate-900/90 rounded-xl border border-slate-800">
+            {providerList.map(prov => {
+              const connected = isConnected(prov.id);
+              return (
+                <button
+                  key={prov.id}
+                  onClick={() => {
+                    if (onConnectProvider) {
+                      onConnectProvider(prov.id);
+                    }
+                  }}
+                  title={connected ? `${prov.name} (Connected)` : `Connect with ${prov.name}`}
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+                    connected
+                      ? 'bg-slate-800 text-white border border-slate-700 shadow-sm'
+                      : 'bg-slate-950/60 border border-slate-800/80 grayscale opacity-50 hover:grayscale-0 hover:opacity-100 hover:bg-slate-800 hover:border-slate-700 text-slate-400'
+                  }`}
+                >
+                  {prov.icon}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* User Profile Dropdown Menu if Logged In */}
+          {currentUser && (
             <div className="relative">
               <button
                 onClick={() => setShowUserDropdown(!showUserDropdown)}
@@ -202,16 +256,6 @@ export const Header: React.FC<HeaderProps> = ({
                   </div>
                 </div>
               )}
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={onOpenSignIn}
-                className="flex items-center gap-2 px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-sm transition-all cursor-pointer"
-              >
-                <Lock className="w-3.5 h-3.5" />
-                <span>SIGN IN</span>
-              </button>
             </div>
           )}
 
