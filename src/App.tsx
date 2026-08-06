@@ -14,21 +14,8 @@ import { ConnectionAdded } from './components/ConnectionAdded';
 import { 
   Sparkles, 
   Search, 
-  Filter, 
-  Key, 
-  Plus, 
   RefreshCw, 
-  Layers, 
-  Lock, 
-  ShieldAlert, 
-  Users, 
   Terminal, 
-  Grid2X2,
-  FileCode,
-  Github,
-  Youtube,
-  MessageSquare,
-  Image as ImageIcon
 } from 'lucide-react';
 
 export default function App() {
@@ -108,9 +95,9 @@ export default function App() {
         fetch('/api/teams')
       ]);
 
-      const authorsData: Author[] = await authorsRes.json();
-      const itemsData = await itemsRes.json();
-      const teamsData = await teamsRes.json();
+      const authorsData: Author[] = await authorsRes.json() || [];
+      const itemsData: PortfolioItem[] = await itemsRes.json() || [];
+      const teamsData: Team[] = await teamsRes.json() || [];
 
       setAllAuthors(authorsData);
       setPortfolioItems(itemsData);

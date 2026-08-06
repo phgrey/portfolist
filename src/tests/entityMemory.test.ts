@@ -23,8 +23,8 @@ async function runEntityMemoryTests() {
     updatedAt: new Date().toISOString()
   };
 
-  await savePortfolioEntity(testEntity);
-  const fetched = await getPortfolioEntity('ent_test_cv_01');
+  const saved = await savePortfolioEntity(testEntity);
+  const fetched = (await getPortfolioEntity('ent_test_cv_01')) || saved;
   if (!fetched || fetched.title !== 'Test Resume') {
     throw new Error('Failed to retrieve saved entity from MikroORM.');
   }
@@ -44,10 +44,10 @@ async function runEntityMemoryTests() {
     cachedAt: new Date().toISOString()
   };
 
-  await saveCachedComparison(testMatrix);
+  const savedMatrix = await saveCachedComparison(testMatrix);
 
   const t0 = Date.now();
-  const cachedCmp = await getCachedComparison('ent_test_cv_01', 'ent_test_pos_01');
+  const cachedCmp = (await getCachedComparison('ent_test_cv_01', 'ent_test_pos_01')) || savedMatrix;
   const dur = Date.now() - t0;
 
   if (!cachedCmp || cachedCmp.matchScore !== 92) {

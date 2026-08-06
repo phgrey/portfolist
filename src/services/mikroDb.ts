@@ -5,7 +5,7 @@ import config from '../../mikro-orm.config';
 let ormInstance: MikroORM<MongoDriver> | null = null;
 
 export async function initMikroOrm(): Promise<MikroORM<MongoDriver>> {
-  if (ormInstance) {
+  if (!ormInstance) {
     console.log(`⚡ [MikroORM] Initializing Data Access Layer with MongoDB driver & IdentityMap L1 caching...`);
     ormInstance = await MikroORM.init<MongoDriver>(config);
   }

@@ -12,7 +12,8 @@ import { walkAndIndexRepositories } from './src/services/githubAppWalker';
 import { GoogleGenAI } from '@google/genai';
 
 import { RequestContext } from '@mikro-orm/core';
-import { findAuthorByUsernameOrEmail } from './src/services/entityMemory';
+import { initMikroOrm, getOrm, getForkedEm } from './src/services/mikroDb';
+import { findAuthorByUsernameOrEmail, upsertAuthorFromGithubOAuth } from './src/services/entityMemory';
 import { authorSchema } from './src/entities/AuthorEntity';
 import { portfolioItemSchema } from './src/entities/PortfolioItemEntity';
 import { teamSchema } from './src/entities/TeamEntity';
@@ -23,6 +24,11 @@ const aiClient = apiKey ? new GoogleGenAI({ apiKey }) : undefined;
 
 const app = express();
 const PORT = 3000;
+
+function ciRegex(str?: string): RegExp {
+  const escaped = (str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`^${escaped}$`, 'i');
+}
 
 app.use(express.json({ limit: '10mb' }));
 
@@ -52,7 +58,7 @@ app.get('/api/referrals/validate', async (req, res) => {
 
   try {
     const em = getForkedEm();
-    const token = await em.findOne(referralTokenSchema, { code: { $re: `(?i)^${code}$` } });
+    const token = await em.findOne(referralTokenSchema, { code: ciRegex(code) });
 
     if (!token) {
       return res.status(440).json({ isValid: false, error: 'Invalid referral token code.' });
@@ -83,7 +89,7 @@ app.post('/api/referrals/create', async (req, res) => {
   try {
     const em = getForkedEm();
     const author = await em.findOne(authorSchema, {
-      $or: [{ id: authorId }, { username: { $re: `(?i)^${authorId}$` } }]
+      $or: [{ id: authorId }, { username: ciRegex(authorId) }]
     });
 
     if (!author) {
@@ -122,7 +128,7 @@ app.post('/api/auth/login', async (req, res) => {
 
   try {
     const em = getForkedEm();
-    const existingAuthor = await em.findOne(authorSchema, { username: { $re: `(?i)^${username}$` } });
+    const existingAuthor = await em.findOne(authorSchema, { username: ciRegex(username) });
     if (existingAuthor) {
       return res.json({ status: 'authenticated', isNew: false, author: existingAuthor });
     }
@@ -135,7 +141,7 @@ app.post('/api/auth/login', async (req, res) => {
       });
     }
 
-    const refToken = await em.findOne(referralTokenSchema, { code: { $re: `(?i)^${referralCode}$` } });
+    const refToken = await em.findOne(referralTokenSchema, { code: ciRegex(referralCode) });
     if (!refToken || refToken.usesCount >= refToken.maxUses) {
       return res.status(403).json({
         error: 'Invalid or Expired Invite',
@@ -294,50 +300,7 @@ app.get('/api/auth/github/callback', async (req, res) => {
       console.warn(`ℹ️ [Direct OAuth Callback] Network token exchange fallback: ${e.message || String(e)}`);
     }
 
-    const userEmail = githubUser.email;
-    const safeUsername = (githubUser.login || 'alex_chen').toLowerCase().replace(/[^a-z0-9_]/g, '');
-    let isNewUser = false;
-
-    const em = getForkedEm();
-    let existingAuthor = await findAuthorByUsernameOrEmail(safeUsername, userEmail);
-
-    if (!existingAuthor) {
-      isNewUser = true;
-      existingAuthor = {
-        id: `usr_${safeUsername}`,
-        username: safeUsername,
-        displayName: githubUser.name || safeUsername,
-        avatarUrl: githubUser.avatar_url || `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80`,
-        bioMarkdown: `# ${githubUser.name || safeUsername}\n\nAuthenticated via **Direct GitHub OAuth 2.0**.`,
-        role: 'Verified Author',
-        createdAt: new Date().toISOString(),
-        integrations: [
-          { provider: 'github', providerUserId: safeUsername, metadata: { username: safeUsername, email: userEmail, accessToken } }
-        ],
-        contactMethods: [
-          { platform: 'email', value: userEmail || `${safeUsername}@workspace.dev`, isPublic: true }
-        ]
-      };
-
-      const authorEnt = em.create(authorSchema, { ...existingAuthor, _id: existingAuthor.id });
-      em.persist(authorEnt);
-      await em.flush();
-
-      console.log(`👤 [OAuth Callback] Created NEW author account "@${safeUsername}" (${userEmail || 'no email'}).`);
-    } else {
-      console.log(`🔗 [OAuth Callback] Matched EXISTING author "@${existingAuthor.username}" via email/username (${userEmail || safeUsername}). Linking GitHub provider...`);
-      const existingIntegration = existingAuthor.integrations.find(i => i.provider === 'github');
-      if (!existingIntegration) {
-        existingAuthor.integrations.push({
-          provider: 'github',
-          providerUserId: safeUsername,
-          metadata: { username: safeUsername, email: userEmail, accessToken }
-        });
-      } else {
-        existingIntegration.metadata = { ...existingIntegration.metadata, accessToken, email: userEmail };
-      }
-      await em.flush();
-    }
+    const { author: existingAuthor, isNewUser } = await upsertAuthorFromGithubOAuth(githubUser, accessToken);
 
     const resolvedUsername = existingAuthor.username;
     console.log(`✅ [Direct OAuth Callback] Authenticated user @${resolvedUsername}. Redirecting to connection-added page...`);
@@ -381,12 +344,12 @@ app.get('/api/authors', async (req, res) => {
 app.get('/api/authors/:username', async (req, res) => {
   try {
     const em = getForkedEm();
-    const author = await em.findOne(authorSchema, { username: { $re: `(?i)^${req.params.username}$` } });
+    const author = await em.findOne(authorSchema, { username: ciRegex(req.params.username) });
     if (!author) {
       return res.status(404).json({ error: 'Author not found' });
     }
 
-    const items = await em.find(portfolioItemSchema, { authorUsername: { $re: `(?i)^${author.username}$` } });
+    const items = await em.find(portfolioItemSchema, { authorUsername: ciRegex(author.username) });
     const referralsCreated = await em.find(referralTokenSchema, { referrerId: author.id });
 
     res.json({ author, items, referralsCreated });
@@ -398,7 +361,7 @@ app.get('/api/authors/:username', async (req, res) => {
 app.put('/api/authors/:username', async (req, res) => {
   try {
     const em = getForkedEm();
-    const author = await em.findOne(authorSchema, { username: { $re: `(?i)^${req.params.username}$` } });
+    const author = await em.findOne(authorSchema, { username: ciRegex(req.params.username) });
     if (!author) {
       return res.status(404).json({ error: 'Author not found' });
     }
@@ -418,7 +381,7 @@ app.put('/api/authors/:username', async (req, res) => {
 app.get('/api/authors/:username/project-sets', async (req, res) => {
   try {
     const em = getForkedEm();
-    const author = await em.findOne(authorSchema, { username: { $re: `(?i)^${req.params.username}$` } });
+    const author = await em.findOne(authorSchema, { username: ciRegex(req.params.username) });
     const authorIdOrUsername = author ? author.id : req.params.username;
     const projectSets = await getProjectSets(authorIdOrUsername);
     res.json({ success: true, projectSets });
@@ -435,7 +398,7 @@ app.post('/api/authors/:username/project-sets', async (req, res) => {
     }
 
     const em = getForkedEm();
-    const author = await em.findOne(authorSchema, { username: { $re: `(?i)^${req.params.username}$` } });
+    const author = await em.findOne(authorSchema, { username: ciRegex(req.params.username) });
     const authorId = author ? author.id : `usr_${req.params.username}`;
     const authorUsername = author ? author.username : req.params.username;
 
@@ -450,7 +413,7 @@ app.post('/api/authors/:username/project-sets/:setName/analyze', async (req, res
   try {
     const { forceRefresh = false, repoList: bodyRepos } = req.body || {};
     const em = getForkedEm();
-    const author = await em.findOne(authorSchema, { username: { $re: `(?i)^${req.params.username}$` } });
+    const author = await em.findOne(authorSchema, { username: ciRegex(req.params.username) });
     const authorIdOrUsername = author ? author.id : req.params.username;
 
     const existingSet = await getProjectSetByName(authorIdOrUsername, req.params.setName);
@@ -513,7 +476,7 @@ app.get('/api/teams', async (req, res) => {
 app.get('/api/teams/:slug', async (req, res) => {
   try {
     const em = getForkedEm();
-    const team = await em.findOne(teamSchema, { slug: { $re: `(?i)^${req.params.slug}$` } });
+    const team = await em.findOne(teamSchema, { slug: ciRegex(req.params.slug) });
     if (!team) {
       return res.status(404).json({ error: 'Team not found' });
     }
@@ -536,7 +499,7 @@ app.post('/api/teams', async (req, res) => {
 
   try {
     const em = getForkedEm();
-    const owner = await em.findOne(authorSchema, { username: { $re: `(?i)^${ownerUsername}$` } });
+    const owner = await em.findOne(authorSchema, { username: ciRegex(ownerUsername) });
     if (!owner) {
       return res.status(404).json({ error: 'Owner author not found' });
     }
@@ -568,10 +531,10 @@ app.post('/api/teams/:slug/join', async (req, res) => {
   const { username } = req.body;
   try {
     const em = getForkedEm();
-    const team = await em.findOne(teamSchema, { slug: { $re: `(?i)^${req.params.slug}$` } });
+    const team = await em.findOne(teamSchema, { slug: ciRegex(req.params.slug) });
     if (!team) return res.status(404).json({ error: 'Team not found' });
 
-    const author = await em.findOne(authorSchema, { username: { $re: `(?i)^${username}$` } });
+    const author = await em.findOne(authorSchema, { username: ciRegex(username) });
     if (!author) return res.status(404).json({ error: 'Author not found' });
 
     if (team.members.some(m => m.username.toLowerCase() === author.username.toLowerCase())) {
@@ -643,7 +606,7 @@ app.post('/api/portfolio/sync', async (req, res) => {
 
   try {
     const em = getForkedEm();
-    const author = await em.findOne(authorSchema, { username: { $re: `(?i)^${authorUsername}$` } });
+    const author = await em.findOne(authorSchema, { username: ciRegex(authorUsername) });
     if (!author) {
       return res.status(404).json({ error: 'Author not found' });
     }

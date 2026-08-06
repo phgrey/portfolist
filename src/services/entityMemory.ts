@@ -1,7 +1,117 @@
-import { PortfolioEntity, CachedEntityComparison } from '../types';
+import { Author, PortfolioEntity, CachedEntityComparison } from '../types';
 import { getForkedEm } from './mikroDb';
+import { authorSchema } from '../entities/AuthorEntity';
 import { portfolioMemorySchema } from '../entities/PortfolioMemoryEntity';
 import { comparisonMatrixSchema } from '../entities/ComparisonMatrixEntity';
+
+/**
+ * Finds an Author profile using MikroORM EntityManager (em) and IdentityMap L1 cache.
+ * Resolves by exact username match or contact methods / integration email match using native em queries.
+ */
+export async function findAuthorByUsernameOrEmail(username?: string, email?: string): Promise<Author | undefined> {
+  const safeUser = username?.trim().toLowerCase();
+  const safeEmail = email?.trim().toLowerCase();
+
+  if (!safeUser && !safeEmail) {
+    return undefined;
+  }
+
+  try {
+    const em = getForkedEm();
+    const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const queryFilters: any[] = [];
+
+    if (safeUser) {
+      queryFilters.push({ username: new RegExp(`^${escapeRegex(safeUser)}$`, 'i') });
+    }
+
+    if (safeEmail) {
+      queryFilters.push({
+        contactMethods: {
+          $elemMatch: {
+            platform: 'email',
+            value: new RegExp(`^${escapeRegex(safeEmail)}$`, 'i')
+          }
+        }
+      });
+      queryFilters.push({
+        integrations: {
+          $elemMatch: {
+            'metadata.email': new RegExp(`^${escapeRegex(safeEmail)}$`, 'i')
+          }
+        }
+      });
+    }
+
+    const author = await em.findOne(authorSchema, {
+      $or: queryFilters
+    });
+
+    if (author) {
+      return author as Author;
+    }
+  } catch (err) {
+    console.warn('ℹ️ [MikroORM] em.findOne query info:', err);
+  }
+
+  return undefined;
+}
+
+/**
+ * Upserts an Author account from GitHub OAuth callback payload.
+ * Creates a new author if non-existent, or links/updates GitHub integration if matching author is found.
+ */
+export async function upsertAuthorFromGithubOAuth(
+  githubUser: { login?: string; name?: string; avatar_url?: string; email?: string },
+  accessToken: string
+): Promise<{ author: Author; isNewUser: boolean }> {
+  const userEmail = githubUser.email;
+  const safeUsername = (githubUser.login || 'alex_chen').toLowerCase().replace(/[^a-z0-9_]/g, '');
+  let isNewUser = false;
+
+  const em = getForkedEm();
+  let existingAuthor = await findAuthorByUsernameOrEmail(safeUsername, userEmail);
+
+  if (!existingAuthor) {
+    isNewUser = true;
+    existingAuthor = {
+      id: `usr_${safeUsername}`,
+      username: safeUsername,
+      displayName: githubUser.name || safeUsername,
+      avatarUrl: githubUser.avatar_url || `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80`,
+      bioMarkdown: `# ${githubUser.name || safeUsername}\n\nAuthenticated via **Direct GitHub OAuth 2.0**.`,
+      role: 'Verified Author',
+      createdAt: new Date().toISOString(),
+      integrations: [
+        { provider: 'github', providerUserId: safeUsername, metadata: { username: safeUsername, email: userEmail, accessToken } }
+      ],
+      contactMethods: [
+        { platform: 'email', value: userEmail || `${safeUsername}@workspace.dev`, isPublic: true }
+      ]
+    };
+
+    const authorEnt = em.create(authorSchema, { ...existingAuthor, _id: existingAuthor.id });
+    em.persist(authorEnt);
+    await em.flush();
+
+    console.log(`👤 [OAuth Callback] Created NEW author account "@${safeUsername}" (${userEmail || 'no email'}).`);
+  } else {
+    console.log(`🔗 [OAuth Callback] Matched EXISTING author "@${existingAuthor.username}" via email/username (${userEmail || safeUsername}). Linking GitHub provider...`);
+    const existingIntegration = existingAuthor.integrations.find(i => i.provider === 'github');
+    if (!existingIntegration) {
+      existingAuthor.integrations.push({
+        provider: 'github',
+        providerUserId: safeUsername,
+        metadata: { username: safeUsername, email: userEmail, accessToken }
+      });
+    } else {
+      existingIntegration.metadata = { ...existingIntegration.metadata, accessToken, email: userEmail };
+    }
+    await em.flush();
+  }
+
+  return { author: existingAuthor, isNewUser };
+}
 
 /**
  * Generate deterministic, commutative comparison key

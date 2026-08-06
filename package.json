@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
+    "@material-tailwind/react": "^3.0.0-beta.24",
     "@mikro-orm/core": "^7.1.11",
     "@mikro-orm/migrations-mongodb": "^7.1.11",
     "@mikro-orm/mongodb": "^7.1.11",
