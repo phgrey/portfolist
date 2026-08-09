@@ -16,12 +16,12 @@ import { PlatformType, Author } from '../types';
 
 // Client Firebase Config (from env or fallback demo project)
 const firebaseConfig = {
-  apiKey: import.meta.env?.VITE_FIREBASE_API_KEY || "AIzaSyDemoKeyForPortfolistOAuth2026",
-  authDomain: import.meta.env?.VITE_FIREBASE_AUTH_DOMAIN || "portfolist-a3725.firebaseapp.com",
-  projectId: import.meta.env?.VITE_FIREBASE_PROJECT_ID || "portfolist-a3725",
-  storageBucket: import.meta.env?.VITE_FIREBASE_STORAGE_BUCKET || "portfolist-a3725.firebasestorage.app",
-  messagingSenderId: import.meta.env?.VITE_FIREBASE_MESSAGING_SENDER_ID || "1029384756",
-  appId: import.meta.env?.VITE_FIREBASE_APP_ID || "1:1029384756:web:abcd1234efgh"
+  apiKey: import.meta.env?.FIREBASE_API_KEY || "AIzaSyDemoKeyForPortfolistOAuth2026",
+  authDomain: import.meta.env?.FIREBASE_AUTH_DOMAIN || "portfolist-a3725.firebaseapp.com",
+  projectId: import.meta.env?.FIREBASE_PROJECT_ID || "portfolist-a3725",
+  storageBucket: import.meta.env?.FIREBASE_STORAGE_BUCKET || "portfolist-a3725.firebasestorage.app",
+  messagingSenderId: import.meta.env?.FIREBASE_MESSAGING_SENDER_ID || "1029384756",
+  appId: import.meta.env?.FIREBASE_APP_ID || "1:1029384756:web:abcd1234efgh"
 };
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
