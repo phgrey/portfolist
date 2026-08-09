@@ -15,10 +15,25 @@ interface Message {
 interface AgentChatDrawerProps {
   currentUser: Author | null;
   currentRepo?: string;
+  isOpen?: boolean;
+  onClose?: () => void;
+  walkPrompt?: string | null;
 }
 
-export function AgentChatDrawer({ currentUser, currentRepo }: AgentChatDrawerProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export function AgentChatDrawer({
+  currentUser,
+  currentRepo,
+  isOpen: externalIsOpen,
+  onClose,
+  walkPrompt
+}: AgentChatDrawerProps) {
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
+  const setIsOpen = (val: boolean) => {
+    setInternalIsOpen(val);
+    if (!val && onClose) onClose();
+  };
+
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -31,6 +46,7 @@ export function AgentChatDrawer({ currentUser, currentRepo }: AgentChatDrawerPro
   ]);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const handledPromptRef = useRef<string | null>(null);
 
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -41,6 +57,16 @@ export function AgentChatDrawer({ currentUser, currentRepo }: AgentChatDrawerPro
       scrollToBottom();
     }
   }, [messages, isOpen]);
+
+  useEffect(() => {
+    if (walkPrompt && walkPrompt !== handledPromptRef.current) {
+      handledPromptRef.current = walkPrompt;
+      setIsOpen(true);
+      setTimeout(() => {
+        handleSendMessage(walkPrompt);
+      }, 100);
+    }
+  }, [walkPrompt]);
 
   if (!currentUser) return null;
 

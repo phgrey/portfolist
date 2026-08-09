@@ -15,7 +15,8 @@ import {
   ThumbsUp, 
   Eye, 
   ShieldCheck,
-  Bookmark
+  Bookmark,
+  Bot
 } from 'lucide-react';
 import { PortfolioItem } from '../types';
 
@@ -24,13 +25,15 @@ interface PortfolioCardProps {
   onOpenNotebook?: (item: PortfolioItem) => void;
   onOpenGDoc?: (item: PortfolioItem) => void;
   onOpenAuthor?: (username: string) => void;
+  onWalkItem?: (item: PortfolioItem) => void;
 }
 
 export const PortfolioCard: React.FC<PortfolioCardProps> = ({
   item,
   onOpenNotebook,
   onOpenGDoc,
-  onOpenAuthor
+  onOpenAuthor,
+  onWalkItem
 }) => {
   const [copiedShare, setCopiedShare] = useState(false);
 
@@ -77,6 +80,12 @@ export const PortfolioCard: React.FC<PortfolioCardProps> = ({
           icon: <Sparkles className="w-3.5 h-3.5 text-emerald-600" />,
           label: 'MetaMask Proof',
           color: 'bg-emerald-50 text-emerald-700 border-emerald-200'
+        };
+      case 'url':
+        return {
+          icon: <ExternalLink className="w-3.5 h-3.5 text-indigo-600" />,
+          label: 'Web Resource',
+          color: 'bg-indigo-50 text-indigo-700 border-indigo-200'
         };
       default:
         return {
@@ -263,20 +272,32 @@ export const PortfolioCard: React.FC<PortfolioCardProps> = ({
 
       </div>
 
-      {/* Footer Link */}
+      {/* Footer Link & Actions */}
       <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
         <span className="text-[10px] text-slate-400 font-mono">
           Synced: {new Date(item.syncedAt).toLocaleDateString()}
         </span>
-        <a
-          href={item.url}
-          target="_blank"
-          rel="noreferrer"
-          className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 transition-colors"
-        >
-          <span>View Source</span>
-          <ExternalLink className="w-3.5 h-3.5" />
-        </a>
+        <div className="flex items-center gap-2">
+          {onWalkItem && (
+            <button
+              onClick={() => onWalkItem(item)}
+              className="px-2.5 py-1 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs flex items-center gap-1 transition-all border border-blue-200 cursor-pointer shadow-sm"
+              title="AI Agent: Walk this repository"
+            >
+              <Bot className="w-3.5 h-3.5 text-blue-600" />
+              <span>Walk</span>
+            </button>
+          )}
+          <a
+            href={item.url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 transition-colors"
+          >
+            <span>View Source</span>
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>
       </div>
 
     </div>

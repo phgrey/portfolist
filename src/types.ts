@@ -11,7 +11,8 @@ export type PlatformType =
   | 'microsoft'
   | 'discord'
   | 'gemini'
-  | 'gdoc';
+  | 'gdoc'
+  | 'url';
 
 export interface IntegrationRecord {
   provider: PlatformType;

@@ -1,91 +1,82 @@
-import React, { useState } from 'react';
-import { Author, PlatformType } from '../types';
-import { 
-  Navbar as MTNavbar,
-  Collapse as MTCollapse,
-  Typography as MTTypography,
-  Button as MTButton,
-  IconButton as MTIconButton,
-  Menu as MTMenu,
-  MenuTrigger as MTMenuTrigger,
-  MenuContent as MTMenuContent,
-  MenuItem as MTMenuItem,
-  Avatar as MTAvatar,
-  Chip as MTChip,
-  ChipLabel as MTChipLabel,
-  ChipIcon as MTChipIcon
+import React, { useState, useEffect } from 'react';
+import {
+  Navbar,
+  Typography,
+  Button,
+  IconButton,
+  Menu,
+  MenuTrigger,
+  MenuContent,
+  MenuItem,
+  Avatar,
+  Chip,
+  ChipLabel,
+  ChipIcon,
+  Collapse
 } from '@material-tailwind/react';
-import { 
-  Terminal, 
-  Users, 
-  Key, 
-  Sparkles, 
-  UserCheck, 
-  LogOut, 
-  CheckCircle2, 
+
+import { Author, PlatformType } from '../types';
+import {
+  Sparkles,
+  Users,
+  Key,
+  Terminal,
   Grid2X2,
   Github,
   Globe,
+  Youtube,
+  MessageSquare,
+  ShieldCheck,
+  User,
+  CheckCircle2,
+  LogOut,
   Menu as MenuIcon,
   X
 } from 'lucide-react';
 
-const Navbar = MTNavbar as any;
-const Collapse = MTCollapse as any;
-const Typography = MTTypography as any;
-const Button = MTButton as any;
-const IconButton = MTIconButton as any;
-const Menu = MTMenu as any;
-const MenuTrigger = MTMenuTrigger as any;
-const MenuContent = MTMenuContent as any;
-const MenuItem = MTMenuItem as any;
-const Avatar = MTAvatar as any;
-const Chip = MTChip as any;
-const ChipLabel = MTChipLabel as any;
-const ChipIcon = MTChipIcon as any;
-
 interface HeaderProps {
-  currentUser: Author | null;
   activeTab: 'feed' | 'teams' | 'referrals' | 'cli' | 'matrix';
   setActiveTab: (tab: 'feed' | 'teams' | 'referrals' | 'cli' | 'matrix') => void;
+  currentUser: Author | null;
   allAuthors: Author[];
-  onSwitchUser: (username: string) => void;
+  activeReferralCode?: string;
   onOpenSignIn: () => void;
-  activeReferralCode: string | null;
   onLogout: () => void;
+  onSwitchUser: (username: string) => void;
   onConnectProvider?: (provider: PlatformType) => void;
+  onOpenAuthorProfile?: (username: string) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
-  currentUser,
   activeTab,
   setActiveTab,
+  currentUser,
   allAuthors,
-  onSwitchUser,
-  onOpenSignIn,
   activeReferralCode,
+  onOpenSignIn,
   onLogout,
-  onConnectProvider
+  onSwitchUser,
+  onConnectProvider,
+  onOpenAuthorProfile
 }) => {
   const [openNav, setOpenNav] = useState(false);
 
-  // Connection Provider Badges Definition
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 960) {
+        setOpenNav(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const providerList: { id: PlatformType; name: string; icon: React.ReactNode }[] = [
-    {
-      id: 'github',
-      name: 'GitHub',
-      icon: <Github className="w-4 h-4" />
-    },
-    {
-      id: 'google',
-      name: 'Google Docs',
-      icon: <Globe className="w-4 h-4 text-red-400" />
-    },
-    {
-      id: 'linkedin',
-      name: 'LinkedIn',
-      icon: <span className="font-bold text-xs text-blue-400 font-sans">in</span>
-    }
+    { id: 'github', name: 'GitHub', icon: <Github className="w-3.5 h-3.5" /> },
+    { id: 'google', name: 'Google Drive', icon: <Globe className="w-3.5 h-3.5" /> },
+    { id: 'youtube', name: 'YouTube', icon: <Youtube className="w-3.5 h-3.5" /> },
+    { id: 'reddit', name: 'Reddit', icon: <MessageSquare className="w-3.5 h-3.5" /> },
+    { id: 'metamask', name: 'Web3 Proof', icon: <ShieldCheck className="w-3.5 h-3.5 text-amber-400" /> }
   ];
 
   const isConnected = (pId: PlatformType): boolean => {
@@ -95,67 +86,67 @@ export const Header: React.FC<HeaderProps> = ({
 
   const navList = (
     <ul className="mt-2 mb-4 flex flex-col gap-2 lg:mb-0 lg:mt-0 lg:flex-row lg:items-center lg:gap-1">
-      <Typography as="li" variant="small" className="p-1 font-normal">
+      <Typography as="li" type="small" className="p-1 font-normal">
         <Button
           size="sm"
           variant={activeTab === 'feed' ? 'solid' : 'ghost'}
           color={activeTab === 'feed' ? 'primary' : 'secondary'}
           onClick={() => setActiveTab('feed')}
-          className="flex items-center gap-2 px-3 py-1.5 capitalize text-xs shadow-none font-medium"
+          className="flex items-center gap-2 px-3 py-1.5 capitalize text-xs shadow-none font-medium text-white"
         >
-          <Sparkles className="w-3.5 h-3.5" />
+          <Sparkles className="w-3.5 h-3.5 text-blue-400" />
           Dashboard
         </Button>
       </Typography>
 
-      <Typography as="li" variant="small" className="p-1 font-normal">
+      <Typography as="li" type="small" className="p-1 font-normal">
         <Button
           size="sm"
           variant={activeTab === 'teams' ? 'solid' : 'ghost'}
           color={activeTab === 'teams' ? 'primary' : 'secondary'}
           onClick={() => setActiveTab('teams')}
-          className="flex items-center gap-2 px-3 py-1.5 capitalize text-xs shadow-none font-medium"
+          className="flex items-center gap-2 px-3 py-1.5 capitalize text-xs shadow-none font-medium text-white"
         >
-          <Users className="w-3.5 h-3.5" />
+          <Users className="w-3.5 h-3.5 text-indigo-400" />
           Team Groups
         </Button>
       </Typography>
 
-      <Typography as="li" variant="small" className="p-1 font-normal">
+      <Typography as="li" type="small" className="p-1 font-normal">
         <Button
           size="sm"
           variant={activeTab === 'referrals' ? 'solid' : 'ghost'}
           color={activeTab === 'referrals' ? 'primary' : 'secondary'}
           onClick={() => setActiveTab('referrals')}
-          className="flex items-center gap-2 px-3 py-1.5 capitalize text-xs shadow-none font-medium"
+          className="flex items-center gap-2 px-3 py-1.5 capitalize text-xs shadow-none font-medium text-white"
         >
-          <Key className="w-3.5 h-3.5" />
+          <Key className="w-3.5 h-3.5 text-amber-400" />
           Referrals
         </Button>
       </Typography>
 
-      <Typography as="li" variant="small" className="p-1 font-normal">
+      <Typography as="li" type="small" className="p-1 font-normal">
         <Button
           size="sm"
           variant={activeTab === 'cli' ? 'solid' : 'ghost'}
           color={activeTab === 'cli' ? 'primary' : 'secondary'}
           onClick={() => setActiveTab('cli')}
-          className="flex items-center gap-2 px-3 py-1.5 capitalize text-xs shadow-none font-medium"
+          className="flex items-center gap-2 px-3 py-1.5 capitalize text-xs shadow-none font-medium text-white"
         >
-          <Terminal className="w-3.5 h-3.5" />
+          <Terminal className="w-3.5 h-3.5 text-emerald-400" />
           CLI Config
         </Button>
       </Typography>
 
-      <Typography as="li" variant="small" className="p-1 font-normal">
+      <Typography as="li" type="small" className="p-1 font-normal">
         <Button
           size="sm"
           variant={activeTab === 'matrix' ? 'solid' : 'ghost'}
           color={activeTab === 'matrix' ? 'primary' : 'secondary'}
           onClick={() => setActiveTab('matrix')}
-          className="flex items-center gap-2 px-3 py-1.5 capitalize text-xs shadow-none font-medium"
+          className="flex items-center gap-2 px-3 py-1.5 capitalize text-xs shadow-none font-medium text-white"
         >
-          <Grid2X2 className="w-3.5 h-3.5" />
+          <Grid2X2 className="w-3.5 h-3.5 text-purple-400" />
           Integration Hub
         </Button>
       </Typography>
@@ -163,10 +154,10 @@ export const Header: React.FC<HeaderProps> = ({
   );
 
   return (
-    <Navbar className="sticky top-0 z-40 max-w-full rounded-none border-b border-slate-800 bg-[#0F172A] px-4 py-2 lg:px-8 text-slate-100 shadow-md">
-      <div className="flex items-center justify-between text-slate-100">
+    <Navbar className="sticky top-0 z-40 max-w-full rounded-none px-4 py-2 bg-slate-950/90 backdrop-blur-xl border-b border-slate-800 text-white shadow-xl">
+      <div className="flex items-center justify-between container mx-auto">
         
-        {/* Brand Logo with Material Tailwind v3 Typography & Avatar */}
+        {/* Brand & System Status */}
         <div
           className="flex items-center gap-3 cursor-pointer mr-4"
           onClick={() => setActiveTab('feed')}
@@ -179,7 +170,7 @@ export const Header: React.FC<HeaderProps> = ({
           />
           <div className="flex items-center gap-2">
             <Typography
-              variant="h6"
+              type="h6"
               className="font-bold tracking-tighter text-white font-mono text-base sm:text-lg"
             >
               COLLECTIVE.SYS
@@ -233,53 +224,60 @@ export const Header: React.FC<HeaderProps> = ({
           {/* User Profile Menu from @material-tailwind/react v3 */}
           {currentUser && (
             <Menu placement="bottom-end">
-              <MenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  color="secondary"
-                  className="flex items-center gap-2.5 p-1.5 border-slate-700 hover:border-slate-600 bg-slate-900 text-left capitalize shadow-none"
-                >
-                  <Avatar
-                    src={currentUser.avatarUrl}
-                    alt={currentUser.displayName}
-                    size="xs"
-                    className="ring-1 ring-blue-500/40"
-                  />
-                  <div className="hidden lg:block font-normal normal-case">
-                    <Typography
-                      variant="small"
-                      className="text-xs font-medium text-white flex items-center gap-1 font-mono"
-                    >
-                      @{currentUser.username}
-                      <UserCheck className="w-3 h-3 text-emerald-400" />
-                    </Typography>
-                    <Typography
-                      variant="small"
-                      className="text-[10px] text-emerald-400 font-mono"
-                    >
-                      SYS_CONNECTED
-                    </Typography>
-                  </div>
-                </Button>
+              <MenuTrigger className="flex items-center gap-2.5 p-1.5 border border-slate-700 hover:border-slate-600 bg-slate-900 text-left capitalize shadow-none text-white rounded-lg transition-colors cursor-pointer outline-none">
+                <Avatar
+                  src={currentUser.avatarUrl}
+                  alt={currentUser.displayName}
+                  size="xs"
+                  className="ring-1 ring-blue-500/40"
+                />
+                <div className="hidden lg:block font-normal normal-case">
+                  <Typography
+                    type="small"
+                    className="font-semibold text-white leading-none text-xs"
+                  >
+                    {currentUser.displayName}
+                  </Typography>
+                  <Typography
+                    type="small"
+                    className="text-[10px] text-slate-400 font-mono leading-tight flex items-center gap-1 mt-0.5"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-pulse" />
+                    SYS_CONNECTED
+                  </Typography>
+                </div>
               </MenuTrigger>
               <MenuContent className="bg-slate-900 border border-slate-700 text-slate-200 p-2 shadow-2xl z-50 min-w-[240px] rounded-xl">
                 <div className="px-3 py-2 border-b border-slate-800 mb-1 outline-none">
                   <Typography
-                    variant="small"
+                    type="small"
                     className="font-semibold text-white text-xs"
                   >
                     {currentUser.displayName}
                   </Typography>
                   <Typography
-                    variant="small"
+                    type="small"
                     className="text-[11px] text-slate-400 font-mono"
                   >
                     @{currentUser.username} • {currentUser.role}
                   </Typography>
                 </div>
 
+                <MenuItem
+                  onClick={() => {
+                    window.history.pushState({}, '', '/me');
+                    if (onOpenAuthorProfile) {
+                      onOpenAuthorProfile(currentUser.username);
+                    }
+                  }}
+                  className="flex items-center gap-2 px-3 py-1.5 text-xs text-blue-300 hover:bg-slate-800 rounded cursor-pointer font-medium mb-1"
+                >
+                  <User className="w-3.5 h-3.5 text-blue-400" />
+                  View My Profile (/me)
+                </MenuItem>
+
                 <Typography
-                  variant="small"
+                  type="small"
                   className="text-[10px] uppercase font-mono text-slate-400 px-3 py-1 font-bold tracking-widest"
                 >
                   Switch Test Account
@@ -314,6 +312,7 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Mobile Drawer Menu Button */}
           <IconButton
             variant="ghost"
+            color="secondary"
             className="ml-auto h-8 w-8 text-white hover:bg-slate-800 lg:hidden"
             onClick={() => setOpenNav(!openNav)}
           >

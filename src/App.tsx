@@ -32,10 +32,14 @@ export default function App() {
   const [platformFilter, setPlatformFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Modals
+  // Modals & Drawers
   const [isSignInOpen, setIsSignInOpen] = useState<boolean>(false);
   const [selectedNotebook, setSelectedNotebook] = useState<PortfolioItem | null>(null);
   const [selectedGDoc, setSelectedGDoc] = useState<PortfolioItem | null>(null);
+
+  // AI Agent Chat Drawer & Walk Repo State
+  const [isAgentDrawerOpen, setIsAgentDrawerOpen] = useState(false);
+  const [agentWalkPrompt, setAgentWalkPrompt] = useState<string | null>(null);
 
   // Referral Invite Code from URL
   const [activeReferralCode, setActiveReferralCode] = useState<string | null>(null);
@@ -43,16 +47,32 @@ export default function App() {
   // Check URL parameters on mount
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const viewParam = urlParams.get('view') || (window.location.pathname.includes('/signup') ? 'signup' : window.location.pathname.includes('/connection-added') ? 'connection-added' : null);
+    const pathname = window.location.pathname;
+
+    if (urlParams.get('github_app') === 'installed') {
+      localStorage.setItem('portfolist:github_app_installed', 'true');
+    }
+
+    const isMeRoute = pathname === '/me' || pathname === '/me/' || urlParams.get('author') === 'me';
+    const authorParam = urlParams.get('author');
+
+    const viewParam = urlParams.get('view') || (pathname.includes('/signup') ? 'signup' : pathname.includes('/connection-added') ? 'connection-added' : isMeRoute ? 'me' : null);
     const loginStatus = urlParams.get('login');
     const loggedUser = urlParams.get('user');
     const providerParam = urlParams.get('provider') || 'github';
     const isNewUser = urlParams.get('is_new') === 'true';
     const refCode = urlParams.get('ref') || urlParams.get('invite');
 
-    if (viewParam === 'signup' || window.location.pathname === '/signup') {
+    if (isMeRoute || viewParam === 'me') {
+      const savedUser = localStorage.getItem('portfolist:user_session') || 'alex_chen';
+      setSelectedAuthorUsername(savedUser);
+      setActiveTab('author_view');
+    } else if (authorParam) {
+      setSelectedAuthorUsername(authorParam);
+      setActiveTab('author_view');
+    } else if (viewParam === 'signup' || pathname === '/signup') {
       setActiveTab('signup');
-    } else if (viewParam === 'connection-added' || window.location.pathname === '/connection-added') {
+    } else if (viewParam === 'connection-added' || pathname === '/connection-added') {
       setActiveTab('connection-added');
       if (loggedUser) {
         setConnectionDetails({ provider: providerParam as any, username: loggedUser, isNewUser });
@@ -135,6 +155,24 @@ export default function App() {
     setActiveTab('author_view');
   };
 
+  // Walk Repo Action
+  const handleWalkItem = (item: PortfolioItem) => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const isAppInstalled = 
+      localStorage.getItem('portfolist:github_app_installed') === 'true' ||
+      urlParams.get('github_app') === 'installed' ||
+      Boolean(currentUser?.integrations?.some(i => i.provider === 'github'));
+
+    if (!isAppInstalled) {
+      const githubAppInstallUrl = `https://github.com/apps/${import.meta.env.GITHUB_APP_CLIENT_NAME || 'posrtfolist'}/installations/new?author=${currentUser?.username || selectedAuthorUsername || 'alex_chen'}`;
+      window.location.href = githubAppInstallUrl;
+      return;
+    }
+
+    setAgentWalkPrompt(`Walk this repo please: ${item.title} (${item.url})`);
+    setIsAgentDrawerOpen(true);
+  };
+
   // Filter items
   const filteredItems = portfolioItems.filter(item => {
     if (platformFilter !== 'all' && item.sourcePlatform !== platformFilter) {
@@ -178,6 +216,7 @@ export default function App() {
         onConnectProvider={(prov) => {
           window.location.href = '/api/auth/github/login';
         }}
+        onOpenAuthorProfile={handleOpenAuthorProfile}
       />
 
       {/* Main Container */}
@@ -314,6 +353,7 @@ export default function App() {
                       onOpenNotebook={item => setSelectedNotebook(item)}
                       onOpenGDoc={item => setSelectedGDoc(item)}
                       onOpenAuthor={handleOpenAuthorProfile}
+                      onWalkItem={handleWalkItem}
                     />
                   ))}
                 </div>
@@ -343,8 +383,14 @@ export default function App() {
             items={portfolioItems.filter(i => i.authorUsername === currentUser.username)}
             currentUser={currentUser}
             onUpdateBio={() => fetchData()}
+            onUpdateAuthor={(updated) => {
+              setCurrentUser(updated);
+              fetchData();
+            }}
+            onRefreshFeed={fetchData}
             onOpenNotebook={item => setSelectedNotebook(item)}
             onOpenGDoc={item => setSelectedGDoc(item)}
+            onWalkItem={handleWalkItem}
           />
         )}
 
@@ -391,8 +437,14 @@ export default function App() {
             items={portfolioItems.filter(i => i.authorUsername === selectedAuthorObj.username)}
             currentUser={currentUser}
             onUpdateBio={() => fetchData()}
+            onUpdateAuthor={(updated) => {
+              setCurrentUser(updated);
+              fetchData();
+            }}
+            onRefreshFeed={fetchData}
             onOpenNotebook={item => setSelectedNotebook(item)}
             onOpenGDoc={item => setSelectedGDoc(item)}
+            onWalkItem={handleWalkItem}
           />
         )}
 
@@ -411,7 +463,12 @@ export default function App() {
       />
 
       {/* AI Candidate Assistant Chat Drawer for Authorized Users */}
-      <AgentChatDrawer currentUser={currentUser} />
+      <AgentChatDrawer
+        currentUser={currentUser}
+        isOpen={isAgentDrawerOpen}
+        onClose={() => setIsAgentDrawerOpen(false)}
+        walkPrompt={agentWalkPrompt}
+      />
 
     </div>
   );

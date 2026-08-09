@@ -9,6 +9,7 @@ import { saveProjectSet, getProjectSets, getProjectSetByName } from './src/servi
 import { analyzeProjectSet } from './agent/skills/authorProfiler';
 import { processAgentMessage } from './src/services/agentEngine';
 import { walkAndIndexRepositories } from './src/services/githubAppWalker';
+import { execSync } from 'child_process';
 import { GoogleGenAI } from '@google/genai';
 
 import { RequestContext } from '@mikro-orm/core';
@@ -269,11 +270,11 @@ app.get('/api/auth/github/callback', async (req, res) => {
 
     let accessToken = `gho_demo_token_${code.slice(0, 10)}`;
     const codeSnippet = code.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6);
-    let githubUser: any = { 
-      login: `github_user_${codeSnippet}`, 
-      name: `GitHub Developer ${codeSnippet}`, 
-      avatar_url: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80`, 
-      email: `github_user_${codeSnippet}@workspace.dev` 
+    let githubUser: any = {
+      login: `github_user_${codeSnippet}`,
+      name: `GitHub Developer ${codeSnippet}`,
+      avatar_url: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80`,
+      email: `github_user_${codeSnippet}@workspace.dev`
     };
 
     try {
@@ -349,7 +350,7 @@ app.get('/api/authors/:username', async (req, res) => {
       return res.status(404).json({ error: 'Author not found' });
     }
 
-    const items = await em.find(portfolioItemSchema, { authorUsername: ciRegex(author.username) });
+    const items = await em.find(portfolioItemSchema, { authorUsername: author.username });
     const referralsCreated = await em.find(referralTokenSchema, { referrerId: author.id });
 
     res.json({ author, items, referralsCreated });
@@ -372,6 +373,111 @@ app.put('/api/authors/:username', async (req, res) => {
 
     await em.flush();
     res.json({ success: true, author });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || String(err) });
+  }
+});
+
+// Synchronize GitHub Profile info (login, name, avatar, email) across user profile & metadata
+app.post('/api/authors/:username/sync-github', async (req, res) => {
+  try {
+    const em = getForkedEm();
+    const targetUsername = req.params.username;
+    const author = await em.findOne(authorSchema, { username: ciRegex(targetUsername) });
+
+    if (!author) {
+      return res.status(404).json({ error: 'Author profile not found' });
+    }
+
+    let githubProfile: any = null;
+
+    // 1. Attempt fetching live GitHub profile info via gh CLI
+    try {
+      const ghUserRaw = execSync(`gh api /users/${author.username}`, { encoding: 'utf-8', timeout: 4000 });
+      githubProfile = JSON.parse(ghUserRaw);
+      console.log(`GH Profile for ${author.username}: ${JSON.stringify(githubProfile)}`);
+    } catch {
+      // 2. Fallback to existing integration metadata or request body overrides
+      const existingIntegration = author.integrations?.find(i => i.provider === 'github');
+      githubProfile = req.body.profile || {
+        login: existingIntegration?.providerUserId || author.username,
+        name: req.body.displayName || author.displayName,
+        email: existingIntegration?.metadata?.email || `${author.username}@collectivefolio.dev`,
+        avatar_url: author.avatarUrl || `https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80`
+      };
+    }
+
+    const updatedUsername = (githubProfile.login || author.username).toLowerCase();
+    const updatedDisplayName = githubProfile.name || githubProfile.login || author.displayName;
+    const updatedAvatar = githubProfile.avatar_url || author.avatarUrl;
+    const updatedEmail = githubProfile.email || `${updatedUsername}@collectivefolio.dev`;
+
+    // Update Author main profile fields
+    author.username = updatedUsername;
+    author.displayName = updatedDisplayName;
+    author.avatarUrl = updatedAvatar;
+    (author as any).meta = {
+      ...((author as any).meta || {}),
+      github: {
+        login: updatedUsername,
+        name: updatedDisplayName,
+        email: updatedEmail,
+        avatarUrl: updatedAvatar,
+        syncedAt: new Date().toISOString()
+      }
+    };
+
+    // Update contactMethods
+    if (!author.contactMethods) author.contactMethods = [];
+    const emailContact = author.contactMethods.find(c => c.platform === 'email');
+    if (emailContact) {
+      emailContact.value = updatedEmail;
+    } else {
+      author.contactMethods.push({ platform: 'email', value: updatedEmail, isPublic: true });
+    }
+
+    // Update integrations matrix
+    if (!author.integrations) author.integrations = [];
+    const ghIntegration = author.integrations.find(i => i.provider === 'github');
+    if (ghIntegration) {
+      ghIntegration.providerUserId = updatedUsername;
+      ghIntegration.metadata = {
+        ...ghIntegration.metadata,
+        username: updatedUsername,
+        email: updatedEmail,
+        avatarUrl: updatedAvatar,
+        syncedAt: new Date().toISOString()
+      };
+    } else {
+      author.integrations.push({
+        provider: 'github',
+        providerUserId: updatedUsername,
+        metadata: {
+          username: updatedUsername,
+          email: updatedEmail,
+          avatarUrl: updatedAvatar,
+          syncedAt: new Date().toISOString()
+        }
+      });
+    }
+
+    // Synchronize associated portfolio items metadata
+    const portfolioItems = await em.find(portfolioItemSchema, { authorId: author.id });
+    for (const item of portfolioItems) {
+      item.authorUsername = updatedUsername;
+      item.authorDisplayName = updatedDisplayName;
+      item.authorAvatar = updatedAvatar;
+    }
+
+    await em.flush();
+
+    console.log(`🔄 [GitHub Profile Sync] Successfully synchronized @${updatedUsername}'s profile (Name: "${updatedDisplayName}", Email: "${updatedEmail}").`);
+
+    res.json({
+      success: true,
+      syncedAt: new Date().toISOString(),
+      author
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message || String(err) });
   }
@@ -673,6 +779,32 @@ app.post('/api/portfolio/sync', async (req, res) => {
           bodyMarkdown: documentText || `# ${title}\n\n${description}\n\nDocument ingested via portfolio-cli integration.`
         }
       };
+    } else if (platform === 'url' || !platform) {
+      let urlHostname = 'Resource';
+      try {
+        urlHostname = new URL(url).hostname;
+      } catch {
+        urlHostname = url || 'Web Resource';
+      }
+
+      newItem = {
+        id: `item_${Date.now()}`,
+        authorId: author.id,
+        authorUsername: author.username,
+        authorDisplayName: author.displayName,
+        authorAvatar: author.avatarUrl,
+        sourcePlatform: 'url',
+        externalId: `url_${Date.now()}`,
+        title: title || `Web Resource: ${urlHostname}`,
+        description: description || `Ingested URL asset (${urlHostname}) into author portfolio.`,
+        url: url || 'https://example.com',
+        isFeatured: false,
+        syncedAt: new Date().toISOString(),
+        tags: tags && tags.length ? tags : ['Web', 'URL', 'Resource'],
+        contentPayload: {
+          bodyMarkdown: `# ${title || urlHostname}\n\n[Open URL Direct Link](${url})\n\nResource imported into portfolio feed.`
+        }
+      };
     } else {
       newItem = {
         id: `item_${Date.now()}`,
@@ -680,7 +812,7 @@ app.post('/api/portfolio/sync', async (req, res) => {
         authorUsername: author.username,
         authorDisplayName: author.displayName,
         authorAvatar: author.avatarUrl,
-        sourcePlatform: (platform as PlatformType) || 'github',
+        sourcePlatform: (platform as PlatformType) || 'url',
         externalId: `${platform}_${Date.now()}`,
         title: title || `Imported ${platform} content`,
         description: description || `Synced ${platform} item into author collective.`,
@@ -700,6 +832,35 @@ app.post('/api/portfolio/sync', async (req, res) => {
     await em.flush();
 
     res.json({ success: true, item: newItem });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || String(err) });
+  }
+});
+
+// Remove a Portfolio Item by URL or ID for an author
+app.post('/api/portfolio/remove', async (req, res) => {
+  const { authorUsername, url, id } = req.body;
+  try {
+    const em = getForkedEm();
+    const items = await em.find(portfolioItemSchema, {});
+
+    const target = items.find(i => {
+      const matchAuthor = !authorUsername || i.authorUsername.toLowerCase() === authorUsername.toLowerCase();
+      const matchId = id && i.id === id;
+      const matchUrl = url && (i.url.toLowerCase() === url.toLowerCase() || i.url.toLowerCase().includes(url.toLowerCase()));
+      return matchAuthor && (matchId || matchUrl);
+    });
+
+    if (!target) {
+      return res.status(404).json({ error: 'Portfolio item not found for removal' });
+    }
+
+    em.remove(target);
+    await em.flush();
+
+    console.log(`🗑️ [Portfolio Removal] Removed portfolio item "${target.title}" (ID: ${target.id}, URL: ${target.url}).`);
+
+    res.json({ success: true, removedId: target.id, message: `Removed portfolio item "${target.title}"` });
   } catch (err: any) {
     res.status(500).json({ error: err.message || String(err) });
   }
