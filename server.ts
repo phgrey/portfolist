@@ -1045,6 +1045,13 @@ app.post('/api/cli/execute', async (req, res) => {
   }
 });
 
+import { onRequest } from 'firebase-functions/v2/https';
+
+export const api = onRequest({ cors: true }, async (req, res) => {
+  await initMikroOrm().catch(err => console.warn('ℹ️ [MikroORM] Connect info:', err.message || String(err)));
+  return app(req, res);
+});
+
 async function startServer() {
   await initMikroOrm().catch(err => console.warn('ℹ️ [MikroORM] Connect info:', err.message || String(err)));
 
@@ -1068,4 +1075,6 @@ async function startServer() {
   });
 }
 
-startServer();
+if (!process.env.FUNCTION_NAME && !process.env.K_SERVICE && process.env.NODE_ENV !== 'test') {
+  startServer();
+}

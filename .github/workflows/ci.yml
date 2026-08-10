@@ -28,11 +28,14 @@ jobs:
           node-version: '20'
 
       - name: Inject Application Configuration (Test Environment)
+        env:
+          CONFIG_TEST: ${{ secrets.APP_CONFIG_JS_TEST }}
+          CONFIG_GENERIC: ${{ secrets.APP_CONFIG_JS }}
         run: |
-          if [ -n "${{ secrets.APP_CONFIG_JS_TEST }}" ]; then
-            echo "${{ secrets.APP_CONFIG_JS_TEST }}" > config.js
-          elif [ -n "${{ secrets.APP_CONFIG_JS }}" ]; then
-            echo "${{ secrets.APP_CONFIG_JS }}" > config.js
+          if [ -n "$CONFIG_TEST" ]; then
+            printf '%s\n' "$CONFIG_TEST" > config.js
+          elif [ -n "$CONFIG_GENERIC" ]; then
+            printf '%s\n' "$CONFIG_GENERIC" > config.js
           else
             cp config.example.js config.js
           fi
@@ -43,18 +46,8 @@ jobs:
             echo "Error: config.js was not created"
             exit 1
           fi
-          if ! node -e "require('./config.js')" 2>/dev/null; then
-            echo "Error: config.js contains invalid JavaScript"
-            exit 1
-          fi
+          node -e "require('./config.js')"
           echo "✓ Configuration file is valid"
-
-      - name: Cache node_modules
-        id: cache-nodemodules
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/package-lock.json') }}
 
       - name: Cache node_modules
         id: cache-nodemodules
