@@ -26,9 +26,8 @@ const aiConfig = appConfig.getAiConfig();
 const apiKey = aiConfig.apiKey;
 const aiClient = apiKey ? new GoogleGenAI({ apiKey }) : undefined;
 
-const serverConfig = appConfig.getServerConfig();
 const app = express();
-const PORT = serverConfig.port;
+const PORT = appConfig.getServerConfig().port;
 
 function ciRegex(str?: string): RegExp {
   const escaped = (str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -247,7 +246,8 @@ app.post('/api/auth/verify-token', async (req, res) => {
 
 // Direct Native GitHub OAuth 2.0 Login Route
 app.get('/api/auth/github/login', (req, res) => {
-  const clientId = process.env.GITHUB_AUTH_CLIENT_ID || process.env.GITHUB_APP_CLIENT_ID || 'ov23stDemoClientId2026';
+  const githubConfig = appConfig.getGithubConfig();
+  const clientId = githubConfig.appClientId || 'ov23stDemoClientId2026';
   const protocol = req.headers['x-forwarded-proto'] || 'http';
   const host = req.headers.host || 'localhost:3000';
   const redirectUri = `${protocol}://${host}/api/auth/github/callback`;
@@ -268,7 +268,8 @@ app.get('/api/auth/github/callback', async (req, res) => {
   }
 
   try {
-    const clientId = process.env.GITHUB_AUTH_CLIENT_ID || process.env.GITHUB_APP_CLIENT_ID || 'ov23stDemoClientId2026';
+    const githubConfig = appConfig.getGithubConfig();
+    const clientId = githubConfig.appClientId || 'ov23stDemoClientId2026';
 
     console.log(`🔑 [Direct OAuth Callback] Received authorization code. Fetching access token...`);
 
@@ -282,7 +283,7 @@ app.get('/api/auth/github/callback', async (req, res) => {
     };
 
     try {
-      const clientSecret = process.env.GITHUB_AUTH_CLIENT_SECRET || process.env.GITHUB_APP_CLIENT_SECRET;
+      const clientSecret = githubConfig.clientSecret;
       const tokenBody: any = { client_id: clientId, code };
       if (clientSecret) {
         tokenBody.client_secret = clientSecret;
@@ -1047,7 +1048,8 @@ app.post('/api/cli/execute', async (req, res) => {
 async function startServer() {
   await initMikroOrm().catch(err => console.warn('ℹ️ [MikroORM] Connect info:', err.message || String(err)));
 
-  if (process.env.NODE_ENV !== 'production') {
+  const serverConfig = appConfig.getServerConfig();
+  if (serverConfig.env !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',

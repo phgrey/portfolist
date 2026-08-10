@@ -35,6 +35,18 @@ jobs:
             cp config.example.js config.js
           fi
 
+      - name: Validate Configuration File
+        run: |
+          if [ ! -f config.js ]; then
+            echo "Error: config.js was not created"
+            exit 1
+          fi
+          if ! node -e "require('./config.js')" 2>/dev/null; then
+            echo "Error: config.js contains invalid JavaScript"
+            exit 1
+          fi
+          echo "✓ Configuration file is valid"
+
       - name: Cache node_modules
         id: cache-nodemodules
         uses: actions/cache@v4
