@@ -9,3 +9,5 @@ coverage/
 
 *.zip
 /tmp/
+config.js
+config.json

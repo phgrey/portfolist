@@ -1,8 +1,6 @@
-import dotenv from 'dotenv';
-dotenv.config();
-
 import { defineConfig } from '@mikro-orm/mongodb';
 import { SeedManager } from '@mikro-orm/seeder';
+import { appConfig } from './src/config/AppConfig';
 import { authorSchema } from './src/entities/AuthorEntity';
 import { portfolioItemSchema } from './src/entities/PortfolioItemEntity';
 import { teamSchema } from './src/entities/TeamEntity';
@@ -12,9 +10,11 @@ import { comparisonMatrixSchema } from './src/entities/ComparisonMatrixEntity';
 import { authorProjectSetSchema } from './src/entities/AuthorProjectSetEntity';
 import { cachedAnalysisSchema } from './src/entities/CachedAnalysisEntity';
 
+const dbConfig = appConfig.getDbConfig();
+
 export default defineConfig({
-  clientUrl: process.env.DB_URL || 'mongodb://localhost:27017/portfolist',
-  dbName: 'portfolist',
+  clientUrl: dbConfig.url,
+  dbName: dbConfig.name,
   entities: [
     authorSchema,
     portfolioItemSchema,

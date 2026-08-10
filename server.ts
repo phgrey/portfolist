@@ -20,11 +20,15 @@ import { portfolioItemSchema } from './src/entities/PortfolioItemEntity';
 import { teamSchema } from './src/entities/TeamEntity';
 import { referralTokenSchema } from './src/entities/ReferralTokenEntity';
 
-const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+import { appConfig } from './src/config/AppConfig';
+
+const aiConfig = appConfig.getAiConfig();
+const apiKey = aiConfig.apiKey;
 const aiClient = apiKey ? new GoogleGenAI({ apiKey }) : undefined;
 
+const serverConfig = appConfig.getServerConfig();
 const app = express();
-const PORT = 3000;
+const PORT = serverConfig.port;
 
 function ciRegex(str?: string): RegExp {
   const escaped = (str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

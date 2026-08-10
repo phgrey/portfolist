@@ -2,6 +2,7 @@ import { IDataProvider, RawRepoData, RawUserData } from './BaseProvider';
 import { PlatformType } from '../../types';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { appConfig } from '../../config/AppConfig';
 
 const execFileAsync = promisify(execFile);
 
@@ -12,7 +13,7 @@ export class GitHubAppProvider implements IDataProvider {
   private clientId: string;
 
   constructor() {
-    this.clientId = process.env.GITHUB_APP_CLIENT_ID || process.env.GITHUB_AUTH_CLIENT_ID || '';
+    this.clientId = appConfig.getGithubConfig().appClientId;
   }
 
   async fetchRawUserData(username: string): Promise<RawUserData> {
