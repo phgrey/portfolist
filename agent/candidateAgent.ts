@@ -16,9 +16,9 @@ if (apiKey) {
 }
 
 // Start Telegram Bot if token exists
-const telegramToken = appConfig.get<string>('telegram.botToken', process.env.TELEGRAM_BOT_TOKEN || '');
-if (telegramToken) {
-  startTelegramBot(telegramToken, aiClient);
+const telegramConfig = appConfig.getTelegramConfig();
+if (telegramConfig.botToken) {
+  startTelegramBot(telegramConfig.botToken, aiClient);
 }
 
 // Print Banner

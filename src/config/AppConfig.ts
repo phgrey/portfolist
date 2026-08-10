@@ -22,6 +22,11 @@ export interface AuthConfig {
 
 export interface GithubConfig {
   appClientId: string;
+  clientSecret: string;
+}
+
+export interface TelegramConfig {
+  botToken: string;
 }
 
 export interface ApplicationConfigSchema {
@@ -30,6 +35,7 @@ export interface ApplicationConfigSchema {
   ai: AiConfig;
   auth: AuthConfig;
   github: GithubConfig;
+  telegram: TelegramConfig;
   [key: string]: any;
 }
 
@@ -55,6 +61,21 @@ export class AppConfig {
       AppConfig.instance = new AppConfig();
     }
     return AppConfig.instance;
+  }
+
+  /**
+   * Safely parse JSON from environment variable with fallback
+   */
+  private parseJsonEnv<T>(envValue: string | undefined, fallback: T): T {
+    if (!envValue) {
+      return fallback;
+    }
+    try {
+      return JSON.parse(envValue) as T;
+    } catch (err: any) {
+      console.warn(`⚠️ [AppConfig] Failed to parse JSON from environment variable: ${err.message}. Using fallback.`);
+      return fallback;
+    }
   }
 
   /**
@@ -100,11 +121,15 @@ export class AppConfig {
         apiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || ''
       },
       auth: {
-        keys: process.env.AUTH_KEYS ? JSON.parse(process.env.AUTH_KEYS) : [],
-        secret: process.env.JWT_SECRET || 'dev_jwt_secret_key'
+        keys: this.parseJsonEnv(process.env.AUTH_KEYS, []),
+        secret: process.env.JWT_SECRET || 'dev_jwt_secret_key_change_me'
       },
       github: {
-        appClientId: process.env.GITHUB_APP_CLIENT_ID || process.env.GITHUB_AUTH_CLIENT_ID || ''
+        appClientId: process.env.GITHUB_APP_CLIENT_ID || process.env.GITHUB_AUTH_CLIENT_ID || '',
+        clientSecret: process.env.GITHUB_AUTH_CLIENT_SECRET || process.env.GITHUB_APP_CLIENT_SECRET || ''
+      },
+      telegram: {
+        botToken: process.env.TELEGRAM_BOT_TOKEN || ''
       }
     };
   }
@@ -182,7 +207,14 @@ export class AppConfig {
 
   public getGithubConfig(): GithubConfig {
     return {
-      appClientId: this.get<string>('github.appClientId', '')
+      appClientId: this.get<string>('github.appClientId', ''),
+      clientSecret: this.get<string>('github.clientSecret', '')
+    };
+  }
+
+  public getTelegramConfig(): TelegramConfig {
+    return {
+      botToken: this.get<string>('telegram.botToken', '')
     };
   }
 
