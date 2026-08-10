@@ -1,13 +1,11 @@
-import dotenv from 'dotenv';
 import readline from 'readline';
 import { GoogleGenAI } from '@google/genai';
 import { processAgentMessage } from '../src/services/agentEngine';
 import { startTelegramBot } from './telegramBot';
-
-dotenv.config();
+import { appConfig } from '../src/config/AppConfig';
 
 // Initialize Gemini Client if API key is provided
-const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+const apiKey = appConfig.getAiConfig().apiKey;
 let aiClient: GoogleGenAI | undefined = undefined;
 
 if (apiKey) {
@@ -18,7 +16,7 @@ if (apiKey) {
 }
 
 // Start Telegram Bot if token exists
-const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
+const telegramToken = appConfig.get<string>('telegram.botToken', process.env.TELEGRAM_BOT_TOKEN || '');
 if (telegramToken) {
   startTelegramBot(telegramToken, aiClient);
 }
