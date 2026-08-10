@@ -27,9 +27,11 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Inject Application Configuration (config.js)
+      - name: Inject Application Configuration (Test Environment)
         run: |
-          if [ -n "${{ secrets.APP_CONFIG_JS }}" ]; then
+          if [ -n "${{ secrets.APP_CONFIG_JS_TEST }}" ]; then
+            echo "${{ secrets.APP_CONFIG_JS_TEST }}" > config.js
+          elif [ -n "${{ secrets.APP_CONFIG_JS }}" ]; then
             echo "${{ secrets.APP_CONFIG_JS }}" > config.js
           else
             cp config.example.js config.js

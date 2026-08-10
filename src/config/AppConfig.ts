@@ -4,6 +4,7 @@ import fs from 'fs';
 export interface ServerConfig {
   port: number;
   env: string;
+  appUrl: string;
 }
 
 export interface DbConfig {
@@ -15,13 +16,20 @@ export interface AiConfig {
   apiKey: string;
 }
 
-export interface AuthConfig {
-  keys: string[];
-  secret: string;
+export interface FirebaseConfig {
+  apiKey: string;
+  authDomain: string;
+  projectId: string;
+  storageBucket: string;
+  messagingSenderId: string;
+  appId: string;
+  measurementId: string;
 }
 
 export interface GithubConfig {
+  appClientName: string;
   appClientId: string;
+  authClientId: string;
   clientSecret: string;
 }
 
@@ -29,13 +37,18 @@ export interface TelegramConfig {
   botToken: string;
 }
 
+export interface TailscaleConfig {
+  authKey: string;
+}
+
 export interface ApplicationConfigSchema {
   server: ServerConfig;
   db: DbConfig;
   ai: AiConfig;
-  auth: AuthConfig;
+  firebase: FirebaseConfig;
   github: GithubConfig;
   telegram: TelegramConfig;
+  tailscale: TailscaleConfig;
   [key: string]: any;
 }
 
@@ -64,31 +77,27 @@ export class AppConfig {
   }
 
   /**
-   * Safely parse JSON from environment variable with fallback
-   */
-  private parseJsonEnv<T>(envValue: string | undefined, fallback: T): T {
-    if (!envValue) {
-      return fallback;
-    }
-    try {
-      return JSON.parse(envValue) as T;
-    } catch (err: any) {
-      console.warn(`⚠️ [AppConfig] Failed to parse JSON from environment variable: ${err.message}. Using fallback.`);
-      return fallback;
-    }
-  }
-
-  /**
-   * Loads config.js from root directory, falling back to config.example.js or process.env
+   * Loads config.js from root directory, falling back to config.example.js
    */
   private loadConfiguration(): void {
     const rootDir = process.cwd();
+    const env = process.env.NODE_ENV;
+    const envConfigPath = env ? path.join(rootDir, `config.${env}.js`) : null;
     const configJsPath = path.join(rootDir, 'config.js');
     const configExampleJsPath = path.join(rootDir, 'config.example.js');
 
+    if (envConfigPath && fs.existsSync(envConfigPath)) {
+      try {
+        delete require.cache[require.resolve(envConfigPath)];
+        this.rawConfig = require(envConfigPath);
+        return;
+      } catch (err: any) {
+        console.warn(`⚠️ [AppConfig] Error loading ${path.basename(envConfigPath)}: ${err.message}. Falling back...`);
+      }
+    }
+
     if (fs.existsSync(configJsPath)) {
       try {
-        // Clear require cache to allow dynamic reload in tests/dev if needed
         delete require.cache[require.resolve(configJsPath)];
         this.rawConfig = require(configJsPath);
         return;
@@ -107,29 +116,39 @@ export class AppConfig {
       }
     }
 
-    // Default fallback from environment variables
     this.rawConfig = {
       server: {
-        port: process.env.PORT ? parseInt(process.env.PORT, 10) : 3000,
-        env: process.env.NODE_ENV || 'development'
+        port: 3000,
+        env: 'development',
+        appUrl: 'http://localhost:3000/'
       },
       db: {
-        url: process.env.DB_URL || process.env.DATABASE_URL || 'mongodb://localhost:27017/portfolist',
-        name: process.env.DB_NAME || 'portfolist'
+        url: 'mongodb://localhost:27017/portfolist',
+        name: 'portfolist'
       },
       ai: {
-        apiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || ''
+        apiKey: ''
       },
-      auth: {
-        keys: this.parseJsonEnv(process.env.AUTH_KEYS, []),
-        secret: process.env.JWT_SECRET || 'dev_jwt_secret_key_change_me'
+      firebase: {
+        apiKey: '',
+        authDomain: 'portfolist-a3725.firebaseapp.com',
+        projectId: 'portfolist-a3725',
+        storageBucket: 'portfolist-a3725.firebasestorage.app',
+        messagingSenderId: '',
+        appId: '',
+        measurementId: ''
       },
       github: {
-        appClientId: process.env.GITHUB_APP_CLIENT_ID || process.env.GITHUB_AUTH_CLIENT_ID || '',
-        clientSecret: process.env.GITHUB_AUTH_CLIENT_SECRET || process.env.GITHUB_APP_CLIENT_SECRET || ''
+        appClientName: 'portfolist',
+        appClientId: '',
+        authClientId: '',
+        clientSecret: ''
       },
       telegram: {
-        botToken: process.env.TELEGRAM_BOT_TOKEN || ''
+        botToken: ''
+      },
+      tailscale: {
+        authKey: ''
       }
     };
   }
@@ -149,11 +168,6 @@ export class AppConfig {
     }
 
     if (current === undefined || current === null) {
-      // Fallback to process.env uppercase version e.g. 'ai.apiKey' -> 'GEMINI_API_KEY'
-      const envKey = dotPath.toUpperCase().replace(/\./g, '_');
-      if (process.env[envKey] !== undefined) {
-        return process.env[envKey] as unknown as T;
-      }
       return defaultValue as T;
     }
 
@@ -181,7 +195,8 @@ export class AppConfig {
   public getServerConfig(): ServerConfig {
     return {
       port: this.get<number>('server.port', 3000),
-      env: this.get<string>('server.env', 'development')
+      env: this.get<string>('server.env', 'development'),
+      appUrl: this.get<string>('server.appUrl', 'http://localhost:3000/')
     };
   }
 
@@ -198,16 +213,23 @@ export class AppConfig {
     };
   }
 
-  public getAuthConfig(): AuthConfig {
+  public getFirebaseConfig(): FirebaseConfig {
     return {
-      keys: this.get<string[]>('auth.keys', []),
-      secret: this.get<string>('auth.secret', 'dev_jwt_secret_key')
+      apiKey: this.get<string>('firebase.apiKey', ''),
+      authDomain: this.get<string>('firebase.authDomain', 'portfolist-a3725.firebaseapp.com'),
+      projectId: this.get<string>('firebase.projectId', 'portfolist-a3725'),
+      storageBucket: this.get<string>('firebase.storageBucket', 'portfolist-a3725.firebasestorage.app'),
+      messagingSenderId: this.get<string>('firebase.messagingSenderId', ''),
+      appId: this.get<string>('firebase.appId', ''),
+      measurementId: this.get<string>('firebase.measurementId', '')
     };
   }
 
   public getGithubConfig(): GithubConfig {
     return {
+      appClientName: this.get<string>('github.appClientName', 'portfolist'),
       appClientId: this.get<string>('github.appClientId', ''),
+      authClientId: this.get<string>('github.authClientId', ''),
       clientSecret: this.get<string>('github.clientSecret', '')
     };
   }
@@ -215,6 +237,12 @@ export class AppConfig {
   public getTelegramConfig(): TelegramConfig {
     return {
       botToken: this.get<string>('telegram.botToken', '')
+    };
+  }
+
+  public getTailscaleConfig(): TailscaleConfig {
+    return {
+      authKey: this.get<string>('tailscale.authKey', '')
     };
   }
 

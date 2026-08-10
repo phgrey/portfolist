@@ -40,15 +40,18 @@ describe('AppConfig Module Tests', () => {
     const customConfig = new AppConfig({
       db: { url: 'sqlite://:memory:', name: 'test_db' },
       ai: { apiKey: 'key_abc' },
-      auth: { keys: ['key1', 'key2'], secret: 'secret123' },
       github: { appClientId: 'gh_client_id_99', clientSecret: 'gh_secret_99' },
       telegram: { botToken: 'telegram_token_123' }
     });
 
     expect(customConfig.getDbConfig()).toEqual({ url: 'sqlite://:memory:', name: 'test_db' });
     expect(customConfig.getAiConfig()).toEqual({ apiKey: 'key_abc' });
-    expect(customConfig.getAuthConfig()).toEqual({ keys: ['key1', 'key2'], secret: 'secret123' });
-    expect(customConfig.getGithubConfig()).toEqual({ appClientId: 'gh_client_id_99', clientSecret: 'gh_secret_99' });
+    expect(customConfig.getGithubConfig()).toEqual({
+      appClientName: 'portfolist',
+      appClientId: 'gh_client_id_99',
+      authClientId: '',
+      clientSecret: 'gh_secret_99'
+    });
     expect(customConfig.getTelegramConfig()).toEqual({ botToken: 'telegram_token_123' });
   });
 
@@ -69,13 +72,6 @@ describe('AppConfig Module Tests', () => {
       connectionString: 'mongodb://localhost:27017/mydb',
       databaseName: 'mydb'
     });
-  });
-
-  it('should handle malformed JSON in AUTH_KEYS gracefully', () => {
-    process.env.AUTH_KEYS = 'invalid-json{{{';
-    const config = new AppConfig();
-    const authConfig = config.getAuthConfig();
-    expect(authConfig.keys).toEqual([]);
   });
 
   it('should load telegram configuration', () => {
