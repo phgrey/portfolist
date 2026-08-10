@@ -23,27 +23,18 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Inject Application Configuration (Firebase Production Environment)
+      - name: Inject Application Configuration
         env:
-          CONFIG_PROD: ${{ secrets.APP_CONFIG_JS_PROD }}
-          CONFIG_GENERIC: ${{ secrets.APP_CONFIG_JS }}
+          SECRET_CONFIG: ${{ secrets.APP_CONFIG_JS_PROD || secrets.APP_CONFIG_JS }}
         run: |
-          if [ -n "$CONFIG_PROD" ]; then
-            printf '%s\n' "$CONFIG_PROD" > config.js
-          elif [ -n "$CONFIG_GENERIC" ]; then
-            printf '%s\n' "$CONFIG_GENERIC" > config.js
+          if [ -n "$SECRET_CONFIG" ]; then
+            printf '%s\n' "$SECRET_CONFIG" > config.cjs
           else
-            cp config.example.js config.js
+            cp config.example.cjs config.cjs
           fi
 
       - name: Validate Configuration File
-        run: |
-          if [ ! -f config.js ]; then
-            echo "Error: config.js was not created"
-            exit 1
-          fi
-          node -e "require('./config.js')"
-          echo "✓ Configuration file is valid"
+        run: node -e "require('./config.cjs')"
 
       - name: Cache node_modules
         id: cache-nodemodules
