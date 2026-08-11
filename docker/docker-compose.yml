@@ -12,11 +12,13 @@ services:
       - ../.env
     restart: unless-stopped
     # tailscale tuning, for inline - docker run - below
-    cap_add:
-      - NET_ADMIN
-    devices:
-      - /dev/net/tun:/dev/net/tun
+    # # # gcloud+tailscale unneded
+    # cap_add:
+    #   - NET_ADMIN
+    # devices:
+    #   - /dev/net/tun:/dev/net/tun
 
+# # # gcloud+tailscale unneded
 # docker run -d \
 #   --name=portfolist-web \
 #   --cap-add=NET_ADMIN \

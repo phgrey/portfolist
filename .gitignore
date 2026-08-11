@@ -12,3 +12,5 @@ coverage/
 config.js
 config.cjs
 config.json
+
+/Dockerfile

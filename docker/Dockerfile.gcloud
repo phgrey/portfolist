@@ -13,6 +13,6 @@ RUN npm run build
 COPY docker/start.sh .
 RUN chmod +x start.sh
 
-EXPOSE 3000
+EXPOSE $PORT
 
 CMD ["./start.sh", "all"]
