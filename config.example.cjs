@@ -1,6 +1,6 @@
 /**
- * Application Configuration Template
- * Copy this file to `config.js` (gitignored) for local development or set APP_CONFIG_JS in GitHub Secrets for CI/CD.
+ * Application Configuration Template (.cjs)
+ * Copy this file to `config.cjs` (gitignored) for local development or set APP_CONFIG_JS in GitHub Secrets for CI/CD.
  */
 module.exports = {
   server: {

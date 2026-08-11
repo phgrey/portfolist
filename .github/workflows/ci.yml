@@ -25,36 +25,20 @@ jobs:
       - name: Setup Node.js Environment
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
-      - name: Inject Application Configuration (Test Environment)
+      - name: Inject Application Configuration
+        env:
+          SECRET_CONFIG: ${{ secrets.APP_CONFIG_JS_TEST || secrets.APP_CONFIG_JS }}
         run: |
-          if [ -n "${{ secrets.APP_CONFIG_JS_TEST }}" ]; then
-            echo "${{ secrets.APP_CONFIG_JS_TEST }}" > config.js
-          elif [ -n "${{ secrets.APP_CONFIG_JS }}" ]; then
-            echo "${{ secrets.APP_CONFIG_JS }}" > config.js
+          if [ -n "$SECRET_CONFIG" ]; then
+            printf '%s\n' "$SECRET_CONFIG" > config.cjs
           else
-            cp config.example.js config.js
+            cp config.example.cjs config.cjs
           fi
 
       - name: Validate Configuration File
-        run: |
-          if [ ! -f config.js ]; then
-            echo "Error: config.js was not created"
-            exit 1
-          fi
-          if ! node -e "require('./config.js')" 2>/dev/null; then
-            echo "Error: config.js contains invalid JavaScript"
-            exit 1
-          fi
-          echo "✓ Configuration file is valid"
-
-      - name: Cache node_modules
-        id: cache-nodemodules
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/package-lock.json') }}
+        run: node -e "require('./config.cjs')"
 
       - name: Install Dependencies
         if: steps.cache-nodemodules.outputs.cache-hit != 'true'

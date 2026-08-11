@@ -10,4 +10,5 @@ coverage/
 *.zip
 /tmp/
 config.js
+config.cjs
 config.json

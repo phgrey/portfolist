@@ -8,6 +8,12 @@
     ],
     "rewrites": [
       {
+        "source": "/api/**",
+        "run": {
+          "serviceId": "1:640999013652:web:922d6f51758586fdab5601"
+        }
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

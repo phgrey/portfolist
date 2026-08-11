@@ -82,37 +82,26 @@ export class AppConfig {
   private loadConfiguration(): void {
     const rootDir = process.cwd();
     const env = process.env.NODE_ENV;
-    const envConfigPath = env ? path.join(rootDir, `config.${env}.js`) : null;
-    const configJsPath = path.join(rootDir, 'config.js');
-    const configExampleJsPath = path.join(rootDir, 'config.example.js');
 
-    if (envConfigPath && fs.existsSync(envConfigPath)) {
-      try {
-        delete require.cache[require.resolve(envConfigPath)];
-        this.rawConfig = require(envConfigPath);
-        return;
-      } catch (err: any) {
-        console.warn(`⚠️ [AppConfig] Error loading ${path.basename(envConfigPath)}: ${err.message}. Falling back...`);
-      }
-    }
+    const pathsToTry = [
+      env ? path.join(rootDir, `config.${env}.cjs`) : null,
+      env ? path.join(rootDir, `config.${env}.js`) : null,
+      path.join(rootDir, 'config.cjs'),
+      path.join(rootDir, 'config.js'),
+      path.join(rootDir, 'config.example.cjs'),
+      path.join(rootDir, 'config.example.js')
+    ].filter(Boolean) as string[];
 
-    if (fs.existsSync(configJsPath)) {
-      try {
-        delete require.cache[require.resolve(configJsPath)];
-        this.rawConfig = require(configJsPath);
-        return;
-      } catch (err: any) {
-        console.warn(`⚠️ [AppConfig] Error loading config.js: ${err.message}. Falling back...`);
-      }
-    }
-
-    if (fs.existsSync(configExampleJsPath)) {
-      try {
-        delete require.cache[require.resolve(configExampleJsPath)];
-        this.rawConfig = require(configExampleJsPath);
-        return;
-      } catch (err: any) {
-        console.warn(`⚠️ [AppConfig] Error loading config.example.js: ${err.message}.`);
+    for (const p of pathsToTry) {
+      if (fs.existsSync(p)) {
+        try {
+          delete require.cache[require.resolve(p)];
+          const loaded = require(p);
+          this.rawConfig = loaded.default || loaded;
+          return;
+        } catch (err: any) {
+          console.warn(`⚠️ [AppConfig] Error loading ${path.basename(p)}: ${err.message}. Trying next...`);
+        }
       }
     }
 
