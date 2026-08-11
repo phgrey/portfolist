@@ -6,20 +6,25 @@
 in code-references - `gcloud+tailscale [un]needed`
 
 ```bash
-# ln -s docker/Dockerfile.gcloud Dockerfile
-cp docker/Dockerfile.gcloud Dockerfile
+ln -s docker/Dockerfile.gcloud Dockerfile
+# cp docker/Dockerfile.gcloud Dockerfile
 
 
 gcloud builds submit --tag gcr.io/portfolist-a3725/portfolist-web .
 
+gcloud builds submit \
+  --tag gcr.io/portfolist-a3725/portfolist-web-v0.0.1 \
+  -f docker/Dockerfile.gcloud .
+
 gcloud run deploy portfolist-web \
-  --image gcr.io/portfolist-a3725/portfolist-web \
+  --image gcr.io/portfolist-a3725/portfolist-web-v0.0.1 \
   --region us-central1 \
   --port 3000 \
   --memory 512Mi \
   --cpu 1 \
   --set-env-vars="TAILSCALE_AUTHKEY=${TAILSCALE_AUTHKEY}" \
   --allow-unauthenticated
+
 
 ```
 
