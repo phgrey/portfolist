@@ -9,7 +9,9 @@
     "rewrites": [
       {
         "source": "/api/**",
-        "function": "api"
+        "run": {
+          "serviceId": "portfolist-server"
+        }
       },
       {
         "source": "**",
