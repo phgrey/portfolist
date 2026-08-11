@@ -10,7 +10,7 @@
       {
         "source": "/api/**",
         "run": {
-          "serviceId": "portfolist-server"
+          "serviceId": "1:640999013652:web:922d6f51758586fdab5601"
         }
       },
       {

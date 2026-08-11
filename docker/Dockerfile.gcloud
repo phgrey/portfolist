@@ -1,29 +1,18 @@
-# Stage 1: Grab Tailscale
-FROM tailscale/tailscale:latest AS tailscale
-
-# Stage 2: Build Node App
-FROM node:20-alpine
+FROM node:26-alpine
 ENV TAILSCALE_AUTHKEY="tskey-auth-123456"
 
-RUN apk add --no-cache ca-certificates iptables iptables-backend-nft
-
-# Copy the tailscale binaries from Stage 1
-COPY --from=tailscale /app/tailscaled /app/tailscaled
-COPY --from=tailscale /app/tailscale /app/tailscale
-RUN mkdir -p /var/run/tailscale /var/lib/tailscale
-
-RUN /app/tailscale up --auth-key=${TAILSCALE_AUTHKEY}
-
+RUN apk add --no-cache curl ca-certificates iptables ip6tables python3 make g++ tailscale
 
 # Set up your Node app
 WORKDIR /usr/src/app
 COPY package*.json ./
-RUN npm install
-COPY .. .
+RUN npm i 
+COPY . .
 RUN npm run build
 
-# Copy a startup wrapper script
-COPY start.sh /usr/src/app/start.sh
-RUN chmod +x /usr/src/app/start.sh
+COPY docker/start.sh .
+RUN chmod +x start.sh
 
-CMD ["/usr/src/app/start.sh"]
+EXPOSE 3000
+
+CMD ["./start.sh", "all"]
